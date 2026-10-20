@@ -185,6 +185,12 @@
   }
 }
 @layer utilities {
+  .mt-3 {
+    margin-top: calc(var(--spacing) * 3);
+  }
+  .mb-\[10px\] {
+    margin-bottom: 10px;
+  }
   .grid {
     display: grid;
   }
@@ -285,15 +291,28 @@
     animation-delay: 0.6s;
   }
   .status {
-    margin-left: auto;
     font-family: var(--font-mono);
     font-size: 12px;
     --tw-tracking: 1px;
     letter-spacing: 1px;
-    color: var(--color-dim);
-  }
-  body.busy .status {
     color: var(--color-neon-b);
+  }
+  .top-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .settings-wrap {
+    position: relative;
+  }
+  .settings-panel {
+    position: absolute;
+    top: 100%;
+    right: 0px;
+    z-index: 50;
+    margin-top: 6px;
+    width: 320px;
   }
   .layout {
     margin-inline: auto;

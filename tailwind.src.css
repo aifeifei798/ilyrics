@@ -67,8 +67,11 @@
   body.busy .eq span:nth-child(4) { @apply [animation-delay:0.45s]; }
   body.busy .eq span:nth-child(5) { @apply [animation-delay:0.6s]; }
 
-  .status { @apply ml-auto font-mono text-[12px] tracking-[1px] text-dim; }
-  body.busy .status { @apply text-neon-b; }
+  .status { @apply font-mono text-[12px] tracking-[1px] text-neon-b; }
+
+  .top-right { @apply ml-auto flex items-center gap-[14px]; }
+  .settings-wrap { @apply relative; }
+  .settings-panel { @apply absolute right-0 top-full z-50 mt-[6px] w-[320px]; }
 }
 
 /* ---------- layout ---------- */

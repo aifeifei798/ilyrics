@@ -347,7 +347,9 @@ function resetOut() {
 
 function setBusy(on) {
   document.body.classList.toggle('busy', on);
-  $('#status').textContent = on ? 'generating…' : 'idle';
+  const st = $('#status');
+  st.hidden = !on;
+  st.textContent = on ? 'generating…' : '';
   $('#genBtn').hidden = on;
   $('#stopBtn').hidden = !on;
 }
@@ -548,6 +550,14 @@ $('#remixBtn').addEventListener('click', () => {
   $('#remixField').hidden = !on;
   if (on) $('#remixInput').focus();
 });
+$('#settingsBtn').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  $('#settingsPanel').hidden = !$('#settingsPanel').hidden;
+});
+document.addEventListener('click', (ev) => {
+  if (!$('#settingsPanel').hidden && !ev.target.closest('.settings-wrap')) $('#settingsPanel').hidden = true;
+});
+
 $('#blindBtn').addEventListener('click', () => {
   const pick = (list, n) => [...list].sort(() => Math.random() - 0.5).slice(0, n);
   $('#theme').value = pick(P.inspirations, 1)[0];
