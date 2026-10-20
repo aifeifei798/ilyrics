@@ -327,7 +327,7 @@
     margin-inline: auto;
     display: grid;
     max-width: 1400px;
-    grid-template-columns: 340px 1fr 240px;
+    grid-template-columns: 340px 1fr 320px;
     gap: 26px;
     padding-inline: 28px;
     padding-top: 26px;
@@ -944,14 +944,14 @@
     display: flex;
     flex-shrink: 0;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
   .hbtn {
     cursor: pointer;
     --tw-border-style: none;
     border-style: none;
     background-color: transparent;
-    padding-inline: 3px;
+    padding-inline: 2px;
     padding-block: 2px;
     font-size: 12px;
     color: var(--color-dim-2);

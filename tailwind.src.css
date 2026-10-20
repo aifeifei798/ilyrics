@@ -78,7 +78,7 @@
 
 @layer components {
   .layout {
-    @apply mx-auto grid max-w-[1400px] grid-cols-[340px_1fr_240px] gap-[26px] px-[28px] pt-[26px] pb-[60px];
+    @apply mx-auto grid max-w-[1400px] grid-cols-[340px_1fr_320px] gap-[26px] px-[28px] pt-[26px] pb-[60px];
     @apply max-[900px]:grid-cols-1 max-[900px]:px-4 max-[900px]:pt-[18px] max-[900px]:pb-[50px];
   }
   .console { @apply flex flex-col gap-4; }
@@ -199,8 +199,8 @@
   .hist-item .name { @apply min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap; }
   .hist-item .del { @apply shrink-0 text-dim-2; }
   .hist-item .del:hover { @apply text-neon-a; }
-  .hist-item .acts { @apply flex shrink-0 items-center gap-[6px]; }
-  .hbtn { @apply cursor-pointer border-none bg-transparent px-[3px] py-[2px] text-[12px] text-dim-2; }
+  .hist-item .acts { @apply flex shrink-0 items-center gap-[4px]; }
+  .hbtn { @apply cursor-pointer border-none bg-transparent px-[2px] py-[2px] text-[12px] text-dim-2; }
   .hbtn:hover { @apply text-neon-b; }
   .hbtn.fav.on { @apply text-gold-2; }
 }
