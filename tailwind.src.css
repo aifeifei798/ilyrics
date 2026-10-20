@@ -274,9 +274,13 @@
   .pick-list::-webkit-scrollbar { width: 6px; }
   .pick-list::-webkit-scrollbar-thumb { @apply rounded-[3px] bg-neon-c/30; }
   .pick-item {
-    @apply cursor-pointer rounded-[8px] border border-line bg-panel-2 px-[10px] py-[6px] text-[12px] text-dim;
+    @apply flex cursor-pointer items-center gap-2 rounded-[8px] border border-line bg-panel-2 px-[10px] py-[6px] text-[12px] text-dim;
     @apply hover:border-neon-c/50 hover:text-text;
   }
+  .pick-item .sc-name { @apply min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-text; }
+  .pick-item .sc-meta { @apply shrink-0 text-[10px] text-dim-2; }
+  .pick-item .sc-del { @apply shrink-0 text-dim-2; }
+  .pick-item .sc-del:hover { @apply text-neon-a; }
 
   .drafts { @apply mb-4 flex flex-col gap-3; }
   .draft-card {

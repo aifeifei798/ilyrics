@@ -812,16 +812,16 @@ function spliceRewritten(orig, tag, blockLines) {
   return [...lines.slice(0, start), ...repl, ...lines.slice(end)].join('\n');
 }
 
-async function rewriteSection(tag) {
-  if (state.busy) return;
-  if (!state.out.lyrics) { toast('先生成一首歌'); return; }
+async function rewriteSection(tag, extra) {
+  if (state.busy) return 'fail';
+  if (!state.out.lyrics) { toast('先生成一首歌'); return 'fail'; }
   state.busy = true;
   setBusy(true);
   lastTps = null;
 
   const messages = [
     { role: 'system', content: '你是顶级作词人。重写歌词中指定的段落，只输出该段落本身：第一行原样保留段落标签行，随后是该段的新内容，行数与原段相近。禁止输出其他段落，禁止 JSON，禁止解释，禁止 markdown 围栏。' },
-    { role: 'user', content: `歌词全文：\n${state.out.lyrics}\n\n只重写 [${tag}] 段落：该段内容全部重写，语言、押韵风格、人声标注保持一致。只输出这一段。` },
+    { role: 'user', content: `歌词全文：\n${state.out.lyrics}\n\n只重写 [${tag}] 段落：${extra ? '该段内容全部重写，语言和人声标注保持一致。只输出这一段。\n附加要求：' + extra : '该段内容全部重写，语言、押韵风格、人声标注保持一致。只输出这一段。'}` },
   ];
 
   try {
@@ -836,7 +836,7 @@ async function rewriteSection(tag) {
     if (!merged) {
       toast('没找到对应段落，歌词未改动');
       renderFinal(state.out);
-      return;
+      return 'miss';
     }
     const curTitle = $('#titleOut').textContent.trim();
     const curTags = $('#tagsOut').textContent.trim();
@@ -846,18 +846,37 @@ async function rewriteSection(tag) {
       lyrics: merged,
     };
     renderFinal(updated);
-    pushVersion(merged, '重写 ' + tag);
+    pushVersion(merged, (extra ? '押韵修复 ' : '重写 ') + tag);
     syncHistory('局部重写 ' + tag);
     toast(`[${tag}] 已重写 ✦`);
+    return 'ok';
   } catch (e) {
     if (e.name === 'AbortError') toast('已停止重写');
     else toast('重写失败：' + e.message);
     renderFinal(state.out);
+    return e.name === 'AbortError' ? 'abort' : 'fail';
   } finally {
     state.busy = false;
     setBusy(false);
     state.abort = null;
   }
+}
+
+async function fixRhymeSections() {
+  if (state.busy) return;
+  if (!state.out.lyrics) { toast('先生成一首歌'); return; }
+  const low = analyzeLyrics(state.out.lyrics).filter((s) => s.lines.length >= 2 && scoreSection(s).rhyme < 0.6);
+  if (!low.length) { toast('没有押韵偏低的段落 ✦'); return; }
+  let fixed = 0;
+  for (const s of low) {
+    toast(`押韵修复 [${s.tag}]… ${fixed + 1}/${low.length}`);
+    const st = await rewriteSection(s.tag, '押韵修复：必须把该段每一行内容都改写（禁止原样返回原行），重写行尾让每行最后一个字都落在同一韵辙里（十三辙：江阳=光霜窗黄上凉伤想响唱，怀来=海爱来开白台，言前=天边前远年见，由求=走酒留旧友秋楼收，灰堆=泪追飞回灰杯，中东=梦风生声灯中钟，人辰=心人真分深音临温）；保持段落语义、语言和人声标注不变，每行控制在 6-12 音节');
+    if (st !== 'ok') break;
+    fixed++;
+  }
+  buildRhymeRow();
+  renderRhyme();
+  toast(fixed ? `${fixed} 段押韵已修复 🔧` : '修复没成功，歌词未改动');
 }
 
 function buildRewriteRow() {
@@ -915,8 +934,8 @@ function lineUnits(ln) {
 function scoreSection(s) {
   const groups = new Map();
   for (const ln of s.lines) {
-    const lc = lastChar(ln);
-    if (lc) groups.set(lc, (groups.get(lc) || 0) + 1);
+    const k = rhymeKey(ln);
+    if (k) groups.set(k, (groups.get(k) || 0) + 1);
   }
   const dom = Math.max(0, ...groups.values());
   const rhyme = s.lines.length ? dom / s.lines.length : 0;
@@ -928,6 +947,34 @@ function scoreSection(s) {
 function lastChar(ln) {
   const chars = [...ln.replace(/[^\p{L}\p{N}]/gu, '')];
   return chars.length ? chars[chars.length - 1] : '';
+}
+
+// 十三辙押韵分组：中文按韵辙（同韵母），英文按尾词尾音
+function rhymeKey(ln) {
+  const RHYME = {
+    发花: '家花沙茶霞挂话假下夏嫁价化画怕吧爸大嘛麻马码',
+    梭波: '歌河荷何合课热渴舍策侧勒客特得德则择责测册辙默恶饿鹅哦坐错落果火躲破妥磨魄搏桌国说弱或多我波哥过左作',
+    乜斜: '夜月雪别叶野业切接些写谢姐界解鞋歇蝶猎血越约缺液页耶也邪',
+    姑苏: '雨语旅曲许与处住路步雾暮独读哭触悟苦土兔护误顾墓幕慕努鼓补古虎母谱舞五无湖浮壶胡呼夫珠书梳疏初除储厨炉如鱼去须需',
+    怀来: '海爱来外开白台排赖猜拜埋彩呆奶怀带亥腮涯概害帅败霭籁奈买拍迈脉',
+    灰堆: '泪追飞回吹灰杯梅悲醉累美围黑给内雷配悔妹非归菲违肥微威',
+    遥条: '老好脑早宝抱报道号豪高毛矛貌笑叫桥遥飘浇绕烧少潮苗雕耀妙渺超',
+    由求: '走酒留旧友秋楼休游愁流舟头投候口手漏透够后厚斗豆瘦守绣袖奏偶藕收柔酬谋筹',
+    寒安: '天暗晚暖岸乱叹伴半淡感蓝南难安山凡慢翻穿干汉淡弹关弯湾宽软转卷换欢',
+    言前: '天边前远年面见连千钱缘眠牵鲜篇言燕电变点念练',
+    江阳: '光霜窗黄上旁凉伤想藏长海洋茫慌狂亮旷莽香汤荒裳乡方房放忘望旺广唱忙浪响',
+    人辰: '心人真分深针沈吟禁今近印音隐临林淋邻尘晨辰神身仁刃任认韧欣辛新春唇纯顺文纹蚊坟纷温',
+    中东: '梦风生声成城灯等冷恒朋腾空中钟公冲终融绒痛通送控动洞红翁嗡英盈迎影景静明青清晴星行停灵冰凝',
+  };
+  const clean = ln.replace(/[^\p{L}\p{N}]/gu, '');
+  if (!clean) return '';
+  const last = clean[clean.length - 1];
+  if (/[A-Za-z]/.test(last)) {
+    const words = clean.match(/[A-Za-z]+/g);
+    return 'EN:' + words[words.length - 1].toLowerCase().slice(-2);
+  }
+  for (const [g, chars] of Object.entries(RHYME)) if (chars.includes(last)) return g;
+  return 'ZH:' + last;
 }
 
 function buildRhymeRow() {
@@ -944,6 +991,12 @@ function buildRhymeRow() {
     buildRhymeRow();
     renderRhyme();
   }));
+  const low = analyzeLyrics(state.out.lyrics).filter((s) => s.lines.length >= 2 && scoreSection(s).rhyme < 0.6);
+  if (low.length) {
+    const fix = chipEl(`🔧 押韵修复 ×${low.length}`, false, fixRhymeSections);
+    fix.title = '按押韵覆盖率，逐段重写押韵偏低的段落（语义与语言保持）';
+    row.appendChild(fix);
+  }
 }
 
 function renderRhyme() {
@@ -962,9 +1015,9 @@ function renderRhyme() {
   box.innerHTML = advice + scored.map(({ s, score }) => {
     const letters = new Map();
     const rows = s.lines.map((ln) => {
-      const lc = lastChar(ln);
-      if (lc && !letters.has(lc)) letters.set(lc, String.fromCharCode(65 + letters.size));
-      return `<div class="r-line"><span class="r-badge">${letters.get(lc) || ''}</span><span class="r-units">${lineUnits(ln)} 单位</span><span class="r-text">${esc(ln)}</span></div>`;
+      const k = rhymeKey(ln);
+      if (k && !letters.has(k)) letters.set(k, String.fromCharCode(65 + letters.size));
+      return `<div class="r-line"><span class="r-badge">${letters.get(k) || ''}</span><span class="r-units">${lineUnits(ln)} 单位</span><span class="r-text">${esc(ln)}</span></div>`;
     }).join('');
     const lens = s.lines.map(lineUnits);
     const cls = score >= 85 ? 'good' : score < 70 ? 'low' : '';
@@ -1155,6 +1208,105 @@ $('#settingsBtn').addEventListener('click', (ev) => {
 });
 document.addEventListener('click', (ev) => {
   if (!$('#settingsPanel').hidden && !ev.target.closest('.settings-wrap')) $('#settingsPanel').hidden = true;
+});
+
+/* ---------- scenes: saved recipe presets ---------- */
+
+const SCENES_KEY = 'ilyrics_scenes';
+let scenes = (() => { try { return JSON.parse(localStorage.getItem(SCENES_KEY)) || []; } catch { return []; } })();
+
+function saveScenes() {
+  localStorage.setItem(SCENES_KEY, JSON.stringify(scenes.slice(0, 20)));
+}
+
+function sceneSummary(s) {
+  const bits = [];
+  if (s.genres && s.genres.length) {
+    const g = P.genres.find((x) => x.id === s.genres[0]);
+    bits.push((g ? g.label : s.genres[0]) + (s.genres.length > 1 ? ` +${s.genres.length - 1}` : ''));
+  }
+  if (s.vocal) bits.push(P.vocals.find((v) => v.id === s.vocal)?.label || '');
+  if (s.artists && s.artists.length) bits.push(`歌手×${s.artists.length}`);
+  if (s.glossary && s.glossary.length) bits.push(`术语×${s.glossary.length}`);
+  if (s.moods && s.moods.length) bits.push(`情绪×${s.moods.length}`);
+  return bits.filter(Boolean).join(' · ');
+}
+
+function renderScenes() {
+  const box = $('#sceneList');
+  box.innerHTML = '';
+  if (!scenes.length) {
+    box.innerHTML = '<span class="placeholder">还没存过配方：点 💾 存当前整套设定</span>';
+    return;
+  }
+  for (const s of scenes) {
+    const el = document.createElement('div');
+    el.className = 'pick-item';
+    el.innerHTML = `<span class="sc-name">${esc(s.name)}</span><span class="sc-meta">${esc(sceneSummary(s))}</span><span class="sc-del">✕</span>`;
+    el.title = '一键装填这套配方';
+    el.addEventListener('click', () => {
+      applyScene(s);
+      $('#scenePanel').hidden = true;
+    });
+    el.querySelector('.sc-del').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      scenes = scenes.filter((x) => x.ts !== s.ts);
+      saveScenes();
+      renderScenes();
+    });
+    box.appendChild(el);
+  }
+}
+
+function applyScene(s) {
+  $('#theme').value = s.theme || '';
+  const rem = s.remix || '';
+  $('#remixInput').value = rem;
+  $('#remixField').hidden = !rem;
+  $('#remixBtn').classList.toggle('active', !!rem);
+  state.langs = s.langs && s.langs.length ? s.langs : ['zh'];
+  state.genres = (s.genres || []).map((id) => P.genres.find((g) => g.id === id)).filter(Boolean);
+  state.artists = (s.artists || []).map((id) => P.artists.find((a) => a.id === id)).filter(Boolean);
+  state.styleCards = (s.styleCards || []).map((id) => P.styles.find((x) => x.id === id)).filter(Boolean);
+  state.vocal = P.vocals.find((v) => v.id === s.vocal) || null;
+  state.structure = P.structTpl.find((t) => t.id === s.structure) || null;
+  state.glossary = (s.glossary || []).map((id) => P.glossary.find((g) => g.id === id)).filter(Boolean);
+  state.moods = new Set(s.moods || []);
+  renderChips();
+  refreshDropdowns();
+  toast(`场景「${s.name}」已装填 🎞`);
+}
+
+$('#sceneSaveBtn').addEventListener('click', () => {
+  const name = prompt('给这套配方起个名字', $('#theme').value.trim().slice(0, 14) || '未命名配方');
+  if (!name || !name.trim()) return;
+  scenes.unshift({
+    name: name.trim(),
+    ts: Date.now(),
+    theme: $('#theme').value.trim(),
+    remix: $('#remixInput').value.trim() || null,
+    langs: [...state.langs],
+    genres: state.genres.map((g) => g.id),
+    artists: state.artists.map((a) => a.id),
+    styleCards: state.styleCards.map((s) => s.id),
+    vocal: state.vocal ? state.vocal.id : null,
+    structure: state.structure ? state.structure.id : null,
+    glossary: state.glossary.map((g) => g.id),
+    moods: [...state.moods],
+  });
+  if (scenes.length > 20) scenes.length = 20;
+  saveScenes();
+  toast('配方已存进场景库 💾（最多留 20 套）');
+});
+
+$('#sceneBtn').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  const p = $('#scenePanel');
+  p.hidden = !p.hidden;
+  if (!p.hidden) renderScenes();
+});
+document.addEventListener('click', (ev) => {
+  if (!$('#scenePanel').hidden && !ev.target.closest('.pick-area')) $('#scenePanel').hidden = true;
 });
 
 $('#blindBtn').addEventListener('click', () => {
@@ -1698,6 +1850,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape') {
     if (!$('#settingsPanel').hidden) $('#settingsPanel').hidden = true;
     if (!$('#pickPanel').hidden) $('#pickPanel').hidden = true;
+    if (!$('#scenePanel').hidden) $('#scenePanel').hidden = true;
     if (!$('#dataOverlay').hidden) $('#dataOverlay').hidden = true;
     if (state.busy && state.abort) state.abort.abort();
     return;
