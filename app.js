@@ -471,6 +471,39 @@ async function generate() {
 
 /* ---------- section rewrite ---------- */
 
+function normalizeBlock(raw, tag) {
+  let text = raw.trim().replace(/^```(?:\w*)?\s*/i, '').replace(/```$/, '');
+  const lines = text.split('\n').map((l) => l.trimEnd());
+  const startIdx = lines.findIndex((l) => l.includes(`[${tag}]`));
+  const kept = startIdx >= 0 ? lines.slice(startIdx) : lines;
+  while (kept.length && kept[0].trim() === '') kept.shift();
+  // 若模型多输出了后续段落，截到下一个标签行为止
+  for (let i = 1; i < kept.length; i++) {
+    if (/^\s*\[[^\]]+\]/.test(kept[i])) { kept.length = i; break; }
+  }
+  while (kept.length && kept[kept.length - 1].trim() === '') kept.pop();
+  if (!kept.length) return null;
+  if (!/^\s*\[[^\]]+\]/.test(kept[0])) kept.unshift(`[${tag}]`);
+  return kept;
+}
+
+function spliceRewritten(orig, tag, blockLines) {
+  const lines = orig.split('\n');
+  const isTag = (ln) => /^\s*\[[^\]]+\]/.test(ln);
+  const start = lines.findIndex((ln) => {
+    const m = ln.match(/^\s*\[([^\]]+)\]/);
+    return m && m[1] === tag;
+  });
+  if (start === -1) return null;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (isTag(lines[i])) { end = i; break; }
+  }
+  const repl = [...blockLines];
+  if (end < lines.length && lines[end - 1]?.trim() === '') repl.push('');
+  return [...lines.slice(0, start), ...repl, ...lines.slice(end)].join('\n');
+}
+
 async function rewriteSection(tag) {
   if (state.busy) return;
   if (!state.out.lyrics) { toast('先生成一首歌'); return; }
@@ -479,18 +512,24 @@ async function rewriteSection(tag) {
   lastTps = null;
 
   const messages = [
-    { role: 'system', content: '你是顶级作词人。只重写歌词中指定的段落，其余段落一字不改。输出完整歌词全文（带段落标签，段落间用换行），禁止 JSON，禁止解释，禁止 markdown 围栏。' },
-    { role: 'user', content: `歌词全文：\n${state.out.lyrics}\n\n只重写 [${tag}] 段落：该段内容全部重写（保持该段标签行不变、行数相近），其余段落保持完全一致。语言、押韵风格、人声标注保持一致。` },
+    { role: 'system', content: '你是顶级作词人。重写歌词中指定的段落，只输出该段落本身：第一行原样保留段落标签行，随后是该段的新内容，行数与原段相近。禁止输出其他段落，禁止 JSON，禁止解释，禁止 markdown 围栏。' },
+    { role: 'user', content: `歌词全文：\n${state.out.lyrics}\n\n只重写 [${tag}] 段落：该段内容全部重写，语言、押韵风格、人声标注保持一致。只输出这一段。` },
   ];
 
   try {
-    const full = await streamChat(
+    const out = await streamChat(
       messages,
       { reasoning: 'none', temp: state.params.temp, maxTok: state.params.maxTok, model: state.params.model },
       (content) => { $('#lyricsOut').innerHTML = renderLyrics(content) + '<span class="caret">▍</span>'; },
     );
-    const lyrics = full.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '');
-    const updated = { title: state.out.title, style_tags: state.out.style_tags, lyrics };
+    const block = normalizeBlock(out, tag);
+    const merged = block ? spliceRewritten(state.out.lyrics, tag, block) : null;
+    if (!merged) {
+      toast('没找到对应段落，歌词未改动');
+      renderFinal(state.out);
+      return;
+    }
+    const updated = { title: state.out.title, style_tags: state.out.style_tags, lyrics: merged };
     renderFinal(updated);
     addHistory(updated, $('#theme').value.trim() || '局部重写 ' + tag);
     toast(`[${tag}] 已重写 ✦`);
