@@ -858,6 +858,36 @@
     overflow-y: auto;
     padding-top: var(--spacing);
   }
+  .hist-date {
+    margin-top: var(--spacing);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    --tw-tracking: 1px;
+    letter-spacing: 1px;
+    color: var(--color-neon-c);
+    opacity: 60%;
+  }
+  .hist-pager {
+    margin-top: calc(var(--spacing) * 2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--spacing) * 2);
+  }
+  .hist-pager .ghost {
+    padding-inline: 12px;
+    padding-block: 4px;
+  }
+  .hist-pager .ghost:disabled {
+    opacity: 40%;
+  }
+  .hist-pager .pg-text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    --tw-tracking: 1px;
+    letter-spacing: 1px;
+    color: var(--color-dim);
+  }
   .hist-item {
     display: flex;
     cursor: pointer;

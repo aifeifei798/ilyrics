@@ -640,22 +640,37 @@ $('#copyAllBtn').addEventListener('click', async () => {
 
 /* ---------- history ---------- */
 
+let histAll = loadHistory();
+const HIST_PAGE = 10;
+const histState = { page: 0, q: '' };
+
 function loadHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
 }
 
-function saveHistory(list) {
-  const fav = list.filter((x) => x.fav);
-  const rest = list.filter((x) => !x.fav).slice(0, Math.max(0, 20 - fav.length));
-  const kept = [...fav, ...rest];
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(kept));
-  $('#histCount').textContent = kept.length;
-  renderHistory(kept);
+function saveHistory() {
+  const fav = histAll.filter((x) => x.fav);
+  const rest = histAll.filter((x) => !x.fav).slice(0, Math.max(0, 100 - fav.length));
+  localStorage.setItem(HISTORY_KEY, JSON.stringify([...fav, ...rest]));
+  histAll = loadHistory();
+  histState.page = 0;
+  renderHistory();
+}
+
+function histFiltered() {
+  const q = histState.q.trim().toLowerCase();
+  if (!q) return histAll;
+  return histAll.filter((x) => `${x.title || ''} ${x.theme || ''}`.toLowerCase().includes(q));
+}
+
+function dateLabel(ts) {
+  const t = new Date(ts);
+  const md = `${t.getMonth() + 1}月${t.getDate()}日`;
+  return t.getFullYear() === new Date().getFullYear() ? md : `${t.getFullYear()}年${md}`;
 }
 
 function addHistory(res, theme) {
-  const list = loadHistory();
-  list.unshift({
+  histAll.unshift({
     title: res.title,
     style_tags: res.style_tags,
     lyrics: res.lyrics,
@@ -668,7 +683,7 @@ function addHistory(res, theme) {
     vocal: state.vocal ? state.vocal.id : null,
     ts: Date.now(),
   });
-  saveHistory(list);
+  saveHistory();
 }
 
 function downloadTxt(item) {
@@ -682,47 +697,81 @@ function downloadTxt(item) {
   toast('已导出 txt ⬇');
 }
 
-function renderHistory(list) {
+function renderHistory() {
+  const list = histFiltered();
+  const pages = Math.max(1, Math.ceil(list.length / HIST_PAGE));
+  histState.page = Math.min(Math.max(histState.page, 0), pages - 1);
+  const slice = list.slice(histState.page * HIST_PAGE, (histState.page + 1) * HIST_PAGE);
+
   const box = $('#histList');
   box.innerHTML = '';
-  if (!list.length) {
-    box.innerHTML = '<span class="placeholder">暂无历史</span>';
-    return;
-  }
-  for (const item of list) {
-    const el = document.createElement('div');
-    el.className = 'hist-item';
-    const t = new Date(item.ts);
-    const hhmm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-    el.innerHTML =
-      `<span class="t">${hhmm}</span><span class="name">${esc(item.title || item.theme)}</span>` +
-      `<span class="acts"><button class="hbtn fav${item.fav ? ' on' : ''}">${item.fav ? '★' : '☆'}</button>` +
-      `<button class="hbtn rn">✎</button><button class="hbtn ex">⬇</button><span class="del">✕</span></span>`;
-    el.querySelector('.fav').addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      item.fav = !item.fav;
-      saveHistory(list);
-    });
-    el.querySelector('.rn').addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const name = prompt('给这首歌起个名字', item.title || item.theme);
-      if (name && name.trim()) {
-        item.title = name.trim();
-        saveHistory(list);
+  if (!slice.length) {
+    box.innerHTML = `<span class="placeholder">${histState.q ? '没有匹配的历史' : '暂无历史'}</span>`;
+  } else {
+    let lastDate = '';
+    for (const item of slice) {
+      const d = dateLabel(item.ts);
+      if (d !== lastDate) {
+        lastDate = d;
+        const hd = document.createElement('div');
+        hd.className = 'hist-date';
+        hd.textContent = d;
+        box.appendChild(hd);
       }
-    });
-    el.querySelector('.ex').addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      downloadTxt(item);
-    });
-    el.querySelector('.del').addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      saveHistory(list.filter((x) => x.ts !== item.ts));
-    });
-    el.addEventListener('click', () => restore(item));
-    box.appendChild(el);
+      const el = document.createElement('div');
+      el.className = 'hist-item';
+      const t = new Date(item.ts);
+      const hhmm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+      el.innerHTML =
+        `<span class="t">${hhmm}</span><span class="name">${esc(item.title || item.theme)}</span>` +
+        `<span class="acts"><button class="hbtn fav${item.fav ? ' on' : ''}">${item.fav ? '★' : '☆'}</button>` +
+        `<button class="hbtn rn">✎</button><button class="hbtn ex">⬇</button><span class="del">✕</span></span>`;
+      el.querySelector('.fav').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        item.fav = !item.fav;
+        saveHistory();
+      });
+      el.querySelector('.rn').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const name = prompt('给这首歌起个名字', item.title || item.theme);
+        if (name && name.trim()) {
+          item.title = name.trim();
+          saveHistory();
+        }
+      });
+      el.querySelector('.ex').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        downloadTxt(item);
+      });
+      el.querySelector('.del').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        histAll = histAll.filter((x) => x.ts !== item.ts);
+        saveHistory();
+      });
+      el.addEventListener('click', () => restore(item));
+      box.appendChild(el);
+    }
   }
+
+  $('#histPageText').textContent = `${histState.page + 1} / ${pages}`;
+  $('#histPrev').disabled = histState.page <= 0;
+  $('#histNext').disabled = histState.page >= pages - 1;
+  $('#histCount').textContent = histAll.length;
 }
+
+$('#histPrev').addEventListener('click', () => {
+  histState.page--;
+  renderHistory();
+});
+$('#histNext').addEventListener('click', () => {
+  histState.page++;
+  renderHistory();
+});
+$('#histSearch').addEventListener('input', (e) => {
+  histState.q = e.target.value;
+  histState.page = 0;
+  renderHistory();
+});
 
 function restore(item) {
   $('#theme').value = item.theme || '';
@@ -752,8 +801,7 @@ makeDropdown('artist', '#artistBtn', '#artistPanel', '#artistSearch', '#artistGr
 makeDropdown('style', '#styleBtn', '#stylePanel', '#styleSearch', '#styleGrid', null, { multi: true, arr: 'styleCards' });
 makeDropdown('genre', '#genreBtn', '#genrePanel', '#genreSearch', '#genreGrid', null, { multi: true, arr: 'genres' });
 
-$('#histCount').textContent = loadHistory().length;
-renderHistory(loadHistory());
+renderHistory();
 renderChips();
 refreshDropdowns();
 
