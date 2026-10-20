@@ -9,6 +9,7 @@ const state = {
   moods: new Set(),
   vocal: null,
   structure: null,
+  glossary: [],
   params: { model: '', temp: 0.9, maxTok: 2400 },
   thinking: true,
   busy: false,
@@ -111,7 +112,7 @@ function makeDropdown(key, btnId, panelId, searchId, gridId, apply, opts = {}) {
   function draw() {
     const q = (search.value || '').trim().toLowerCase();
     grid.innerHTML = '';
-    const list = { artist: P.artists, style: P.styles, genre: P.genres }[key];
+    const list = P[{ artist: 'artists', style: 'styles', genre: 'genres', glossary: 'glossary' }[key]];
     for (const item of list) {
       if (q && !item.label.toLowerCase().includes(q) && !item.id.includes(q)) continue;
       const el = chipEl(item.label, isActive(item), () => toggle(item));
@@ -182,6 +183,7 @@ function composeTags() {
   if (state.artists.length) parts.push(state.artists.map((a) => a.tags).join(','));
   if (state.styleCards.length) parts.push(state.styleCards.map((s) => s.tags).join(','));
   if (state.genres.length) parts.push(state.genres.map((g) => g.tags).join(','));
+  if (state.glossary.length) parts.push(state.glossary.map((g) => g.tag).join(','));
   if (state.vocal) parts.push(state.vocal.tags);
   for (const m of P.moods) if (state.moods.has(m.id)) parts.push(m.tag);
   const seen = [];
@@ -189,7 +191,7 @@ function composeTags() {
     const t = raw.trim();
     if (t && !seen.includes(t)) seen.push(t);
   }
-  return seen.slice(0, 12).join(', ');
+  return seen.slice(0, 16).join(', ');
 }
 
 function buildSystem() {
@@ -210,12 +212,13 @@ function buildSystem() {
     '输出规则：只输出一个 JSON 对象，禁止输出任何其它文字、禁止 markdown 围栏。',
     'JSON 字段：',
     '- title：歌名，简短有画面感。',
-    '- style_tags：全英文风格标签，逗号分隔，含流派、人声性别、乐器、氛围、BPM。绝对禁止出现任何真实艺人、乐队或品牌名称（平台会屏蔽），用描述性词汇代替。',
+    '- style_tags：全英文风格标签，逗号分隔，含流派、人声性别、乐器、氛围、BPM。可借用 Suno 音乐术语增强控制：速度（adagio/andante/allegro/presto/rubato）、力度（crescendo/pianissimo/fortissimo）、织体（sparse/dense/layering）、人声技巧（falsetto/belt/melisma/crooning）、制作效果（reverb-heavy/tape compression/distorted/filtered）、调性与拍子（minor key/major key/3/4 waltz）。绝对禁止出现任何真实艺人、乐队或品牌名称（平台会屏蔽），用描述性词汇代替。',
     '- lyrics：带 Suno 段落标签的完整歌词，每个段落之间空一行，歌词内不得出现任何说明性文字。',
     `歌词语言规则：${langRule}`,
     `曲风写法：${guides.join('；') || '流行歌标准写法'}`,
     `情绪基调：${moodWords}`,
     `结构模板：${P.structs[state.structure ? state.structure.id : state.genres.length ? state.genres[0].struct : 'pop']}`,
+    ...(state.glossary.length ? ['用户指定的音乐术语必须原样出现在 style_tags 中：' + state.glossary.map((g) => g.tag).join(', ')] : []),
     ...(remixRule ? [remixRule] : []),
     '每段歌词 4-6 行（Rap/Trap 按写法指南调整），全曲控制在 45 行以内，押韵自然。',
     '再次强调：输出必须是合法 JSON，lyrics 内的换行写成 \\n。',
@@ -988,6 +991,7 @@ $('#blindBtn').addEventListener('click', () => {
   state.moods = new Set(pick(P.moods, Math.floor(Math.random() * 3)));
   state.vocal = pick(P.vocals, 1)[0];
   state.structure = pick(P.structTpl, 1)[0];
+  state.glossary = pick(P.glossary, Math.floor(Math.random() * 3));
   renderChips();
   refreshDropdowns();
   toast('盲盒配方已装填 🎰');
@@ -1091,6 +1095,7 @@ function addHistory(res, theme) {
     styleCards: state.styleCards.map((s) => s.id),
     vocal: state.vocal ? state.vocal.id : null,
     structure: state.structure ? state.structure.id : null,
+    glossary: state.glossary.map((g) => g.id),
     ts: Date.now(),
   });
   saveHistory();
@@ -1201,6 +1206,7 @@ function restore(item) {
     .filter(Boolean);
   state.vocal = P.vocals.find((v) => v.id === item.vocal) || null;
   state.structure = P.structTpl.find((t) => t.id === item.structure) || null;
+  state.glossary = (item.glossary || []).map((id) => P.glossary.find((g) => g.id === id)).filter(Boolean);
   state.moods.clear();
   renderChips();
   refreshDropdowns();
@@ -1249,6 +1255,7 @@ $('#histImport').addEventListener('change', async (ev) => {
 makeDropdown('artist', '#artistBtn', '#artistPanel', '#artistSearch', '#artistGrid', null, { multi: true, arr: 'artists' });
 makeDropdown('style', '#styleBtn', '#stylePanel', '#styleSearch', '#styleGrid', null, { multi: true, arr: 'styleCards' });
 makeDropdown('genre', '#genreBtn', '#genrePanel', '#genreSearch', '#genreGrid', null, { multi: true, arr: 'genres' });
+makeDropdown('glossary', '#termBtn', '#termPanel', '#termSearch', '#termGrid', null, { multi: true, arr: 'glossary' });
 
 /* ---------- data maintenance ---------- */
 
@@ -1259,6 +1266,7 @@ const DATA_TABS = [
   { key: 'artists', label: '歌手', kind: 'obj', guide: true },
   { key: 'styles', label: '风格', kind: 'obj', guide: true },
   { key: 'genres', label: '曲风', kind: 'obj' },
+  { key: 'glossary', label: '音乐术语', kind: 'obj', guide: true, tag: true },
   { key: 'moods', label: '情绪', kind: 'obj', tag: true },
   { key: 'vocals', label: '人声', kind: 'obj', tag: true },
 ];
@@ -1290,6 +1298,7 @@ function pruneTo(key) {
   else if (key === 'artists') state.artists = state.artists.filter((a) => ids.includes(a.id));
   else if (key === 'styles') state.styleCards = state.styleCards.filter((s) => ids.includes(s.id));
   else if (key === 'genres') state.genres = state.genres.filter((g) => ids.includes(g.id));
+  else if (key === 'glossary') state.glossary = state.glossary.filter((g) => ids.includes(g.id));
   else if (key === 'moods') state.moods = new Set([...state.moods].filter((id) => ids.includes(id)));
   else if (key === 'vocals' && state.vocal && !ids.includes(state.vocal.id)) state.vocal = null;
 }
