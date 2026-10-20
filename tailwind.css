@@ -202,6 +202,10 @@
   .hidden {
     display: none;
   }
+  .blur {
+    --tw-blur: blur(8px);
+    filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+  }
 }
 @layer base {
   body {
@@ -1378,6 +1382,35 @@
     white-space: nowrap;
     color: var(--color-lyrics);
   }
+  .chip.warn {
+    border-color: color-mix(in srgb, #ff3d8f 50%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-neon-a) 50%, transparent);
+    }
+    color: var(--color-neon-a);
+  }
+  .r-advice {
+    margin-bottom: calc(var(--spacing) * 2);
+    font-size: 11px;
+    color: var(--color-gold-2);
+  }
+  .r-advice.ok {
+    color: var(--color-neon-b);
+  }
+  .r-score {
+    color: var(--color-dim);
+  }
+  .r-score.good {
+    color: var(--color-neon-b);
+  }
+  .r-score.low {
+    color: var(--color-neon-a);
+  }
+  .hist-item .album {
+    margin-left: 4px;
+    font-size: 10px;
+    color: var(--color-dim-2);
+  }
   .history .label {
     display: flex;
     align-items: center;
@@ -1387,6 +1420,59 @@
     display: flex;
     gap: 6px;
   }
+}
+@property --tw-blur {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-brightness {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-contrast {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-grayscale {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-hue-rotate {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-invert {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-opacity {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-saturate {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-sepia {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-drop-shadow {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-drop-shadow-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-drop-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --tw-drop-shadow-size {
+  syntax: "*";
+  inherits: false;
 }
 @property --tw-border-style {
   syntax: "*";
@@ -1592,6 +1678,19 @@
 @layer properties {
   @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
     *, ::before, ::after, ::backdrop {
+      --tw-blur: initial;
+      --tw-brightness: initial;
+      --tw-contrast: initial;
+      --tw-grayscale: initial;
+      --tw-hue-rotate: initial;
+      --tw-invert: initial;
+      --tw-opacity: initial;
+      --tw-saturate: initial;
+      --tw-sepia: initial;
+      --tw-drop-shadow: initial;
+      --tw-drop-shadow-color: initial;
+      --tw-drop-shadow-alpha: 100%;
+      --tw-drop-shadow-size: initial;
       --tw-border-style: solid;
       --tw-tracking: initial;
       --tw-gradient-position: initial;

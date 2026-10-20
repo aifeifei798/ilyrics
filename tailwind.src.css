@@ -306,6 +306,15 @@
   .r-units { @apply min-w-[60px] text-dim-2; }
   .r-text { @apply truncate text-lyrics; }
 
+  .chip.warn { @apply border-neon-a/50 text-neon-a; }
+  .r-advice { @apply mb-2 text-[11px] text-gold-2; }
+  .r-advice.ok { @apply text-neon-b; }
+  .r-score { @apply text-dim; }
+  .r-score.good { @apply text-neon-b; }
+  .r-score.low { @apply text-neon-a; }
+
+  .hist-item .album { @apply ml-[4px] text-[10px] text-dim-2; }
+
   .history .label { @apply flex items-center; }
   .hist-tools { @apply ml-auto flex gap-[6px]; }
 }

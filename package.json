@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "build": "tailwindcss -i tailwind.src.css -o tailwind.css"
+    "build": "tailwindcss -i tailwind.src.css -o tailwind.css",
+    "test": "node --test test/*.test.js"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",

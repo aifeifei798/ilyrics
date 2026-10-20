@@ -462,12 +462,72 @@ function renderVerRow() {
       } else {
         $('#lyricsOut').innerHTML = renderLyrics(state.out.lyrics);
       }
+      setLyricsEditable();
       renderVerRow();
     });
     d.title = '对比上一版，看这次重写改了哪些行';
     row.appendChild(d);
   }
 }
+
+function setLyricsEditable() {
+  $('#lyricsOut').setAttribute('contenteditable', !state.busy && !diffOn ? 'plaintext-only' : 'false');
+}
+
+function setOutEditable() {
+  const on = !state.busy;
+  $('#titleOut').setAttribute('contenteditable', on ? 'true' : 'false');
+  $('#tagsOut').setAttribute('contenteditable', on ? 'true' : 'false');
+  setLyricsEditable();
+}
+
+$('#titleOut').addEventListener('blur', () => {
+  if (state.busy) return;
+  const t = $('#titleOut').textContent.trim();
+  if (!state.out.title) { renderFinal(state.out); return; }
+  if (!t) { $('#titleOut').innerHTML = esc(state.out.title); return; }
+  if (t !== state.out.title) {
+    state.out = { ...state.out, title: t };
+    syncHistory();
+    toast('歌名已保存进历史 ✎');
+  }
+});
+
+$('#tagsOut').addEventListener('blur', () => {
+  if (state.busy) return;
+  const raw = $('#tagsOut').textContent.trim();
+  if (!state.out.style_tags) { renderFinal(state.out); return; }
+  if (!raw) { $('#tagsOut').innerHTML = esc(state.out.style_tags); return; }
+  const seen = [];
+  for (const p of raw.split(',')) {
+    const t = p.trim();
+    if (t && !seen.includes(t)) seen.push(t);
+  }
+  const tags = seen.join(', ');
+  if (tags !== state.out.style_tags) {
+    state.out = { ...state.out, style_tags: tags };
+    $('#tagsOut').innerHTML = esc(tags);
+    syncHistory();
+    toast('风格标签已保存进历史 ✎');
+  }
+});
+
+$('#lyricsOut').addEventListener('blur', () => {
+  if (state.busy) return;
+  if (!state.out.lyrics) { renderFinal(state.out); return; }
+  const norm = normalizeLyrics($('#lyricsOut').textContent);
+  if (!norm) { renderFinal(state.out); toast('歌词被清空了，已还原'); return; }
+  $('#lyricsOut').innerHTML = renderLyrics(norm);
+  if (norm === state.out.lyrics) return;
+  if (!versions.length) resetVersions(state.out.lyrics);
+  state.out = { ...state.out, lyrics: norm };
+  pushVersion(norm, '手动编辑');
+  syncHistory('手动编辑');
+  buildRewriteRow();
+  renderRhyme();
+  updateStats();
+  toast('歌词已编辑，记为新版本 ✏️');
+});
 
 function renderFinal(res) {
   state.out = res;
@@ -480,6 +540,7 @@ function renderFinal(res) {
   renderRhyme();
   updateStats();
   renderVerRow();
+  setOutEditable();
   sunoStep = 0;
   setSunoBtnLabel();
 }
@@ -512,6 +573,7 @@ function setBusy(on) {
   $('#genBtn').hidden = on;
   $('#stopBtn').hidden = !on;
   $('#batchBtn').hidden = on;
+  setOutEditable();
 }
 
 /* ---------- streaming client ---------- */
@@ -806,11 +868,17 @@ function buildRewriteRow() {
   for (const m of state.out.lyrics.matchAll(/\[([^\]]+)\]/g)) {
     if (!seen.includes(m[1])) seen.push(m[1]);
   }
+  const secs = analyzeLyrics(state.out.lyrics);
+  const scores = new Map(secs.map((s) => [s.tag, scoreSection(s).score]));
   for (const t of seen) {
     const first = t.split('|')[0].trim();
     if (first === 'END') continue;
     const chip = chipEl('重写 ' + first, false, () => rewriteSection(t));
-    if (t !== first) chip.title = '重写 ' + t;
+    const sc = scores.get(t);
+    if (sc != null) {
+      chip.title = sc < 70 ? `可唱性 ${sc} 分，建议重写` : `可唱性 ${sc} 分`;
+      if (sc < 70) chip.classList.add('warn');
+    } else if (t !== first) chip.title = '重写 ' + t;
     row.appendChild(chip);
   }
 }
@@ -844,6 +912,19 @@ function lineUnits(ln) {
   return cjk + words;
 }
 
+function scoreSection(s) {
+  const groups = new Map();
+  for (const ln of s.lines) {
+    const lc = lastChar(ln);
+    if (lc) groups.set(lc, (groups.get(lc) || 0) + 1);
+  }
+  const dom = Math.max(0, ...groups.values());
+  const rhyme = s.lines.length ? dom / s.lines.length : 0;
+  const ok = s.lines.filter((ln) => lineUnits(ln) >= 6 && lineUnits(ln) <= 12).length;
+  const syl = s.lines.length ? ok / s.lines.length : 0;
+  return { score: Math.round(rhyme * 60 + syl * 40), rhyme, syl };
+}
+
 function lastChar(ln) {
   const chars = [...ln.replace(/[^\p{L}\p{N}]/gu, '')];
   return chars.length ? chars[chars.length - 1] : '';
@@ -873,7 +954,12 @@ function renderRhyme() {
     return;
   }
   const secs = analyzeLyrics(state.out.lyrics);
-  box.innerHTML = secs.map((s) => {
+  const scored = secs.map((s) => ({ s, ...scoreSection(s) }));
+  const low = scored.filter((x) => x.score < 70);
+  const advice = low.length
+    ? `<div class="r-advice">可唱性偏低，建议重写：${low.map((x) => `${esc(x.s.tag)}（${x.score} 分，押韵 ${Math.round(x.rhyme * 100)}%）`).join('、')}</div>`
+    : scored.length ? '<div class="r-advice ok">全段可唱性 ≥ 70，不用重写 ✦</div>' : '';
+  box.innerHTML = advice + scored.map(({ s, score }) => {
     const letters = new Map();
     const rows = s.lines.map((ln) => {
       const lc = lastChar(ln);
@@ -881,7 +967,8 @@ function renderRhyme() {
       return `<div class="r-line"><span class="r-badge">${letters.get(lc) || ''}</span><span class="r-units">${lineUnits(ln)} 单位</span><span class="r-text">${esc(ln)}</span></div>`;
     }).join('');
     const lens = s.lines.map(lineUnits);
-    return `<div class="r-sec"><div class="r-tag">${esc(s.tag)} · ${s.lines.length} 行 · ${Math.min(...lens)}–${Math.max(...lens)} 单位/行</div>${rows}</div>`;
+    const cls = score >= 85 ? 'good' : score < 70 ? 'low' : '';
+    return `<div class="r-sec"><div class="r-tag">${esc(s.tag)} · ${s.lines.length} 行 · ${Math.min(...lens)}–${Math.max(...lens)} 单位/行 · <span class="r-score ${cls}">可唱 ${score}</span></div>${rows}</div>`;
   }).join('');
   box.hidden = false;
 }
@@ -911,31 +998,49 @@ $('#retitleBtn').addEventListener('click', async () => {
   state.busy = true;
   setBusy(true);
   lastTps = null;
-  const messages = [
-    { role: 'system', content: '你是顶级作词人。根据歌词重想一个歌名：简短、有画面感、贴合歌词语言。只输出歌名本身一行，禁止解释、禁止引号。' },
-    { role: 'user', content: `当前歌名：${state.out.title}\n歌词：\n${state.out.lyrics}` },
-  ];
-  try {
-    const full = await streamChat(
-      messages,
-      { reasoning: 'none', temp: Math.min(state.params.temp, 0.9), maxTok: 80, model: state.params.model },
-      (content) => { $('#titleOut').innerHTML = esc(content.trim().split('\n')[0]) + '<span class="caret">▍</span>'; },
-    );
-    const title = full.trim().split('\n')[0].replace(/^["'「『]+|["'」』]+$/g, '').trim();
-    if (!title) { toast('没拿到新歌名'); renderFinal(state.out); return; }
-    state.out = { ...state.out, title };
-    renderFinal(state.out);
-    syncHistory();
-    toast('歌名已换新 🏷');
-  } catch (e) {
-    if (e.name === 'AbortError') toast('已停止');
-    else toast('歌名重写失败：' + e.message);
-    renderFinal(state.out);
-  } finally {
-    state.busy = false;
-    setBusy(false);
-    state.abort = null;
+  const sys = '你是顶级作词人。根据歌词重想一个歌名：简短、有画面感、贴合歌词语言。只输出歌名本身一行，禁止解释、禁止引号。';
+  $('#titleOut').innerHTML = '<span class="placeholder">想歌名中…</span>';
+  const results = await Promise.all([0, 1, 2].map(async (i) => {
+    try {
+      const full = await streamChat(
+        [
+          { role: 'system', content: sys },
+          { role: 'user', content: `当前歌名：${state.out.title}\n这是第 ${i + 1} 个候选，意象角度要和常见命名不同（别和当前歌名近似）。\n歌词：\n${state.out.lyrics}` },
+        ],
+        { reasoning: 'none', temp: 0.85 + i * 0.12, maxTok: 80, model: state.params.model },
+        null,
+      );
+      const t = full.trim().split('\n')[0].replace(/^["'「『]+|["'」』]+$/g, '').trim();
+      return t || null;
+    } catch { return null; }
+  }));
+  state.busy = false;
+  setBusy(false);
+  state.abort = null;
+  const titles = [...new Set(results.filter(Boolean))];
+  if (!titles.length) { toast('没拿到新歌名'); renderFinal(state.out); return; }
+  renderFinal(state.out);
+  const box = $('#titleDrafts');
+  box.innerHTML = '';
+  box.hidden = false;
+  for (const t of titles) {
+    const b = chipEl(t, false, () => {
+      state.out = { ...state.out, title: t };
+      $('#titleOut').innerHTML = esc(t);
+      box.hidden = true;
+      box.innerHTML = '';
+      syncHistory();
+      toast(`歌名定为「${t}」 🏷`);
+    });
+    box.appendChild(b);
   }
+  box.appendChild(chipEl('✕ 都不选', false, () => {
+    box.hidden = true;
+    box.innerHTML = '';
+    renderFinal(state.out);
+    toast('放弃候选，保留原歌名');
+  }));
+  toast(`${titles.length} 个歌名候选，点一个定下`);
 });
 
 $('#restyleBtn').addEventListener('click', async () => {
@@ -1208,8 +1313,10 @@ function renderHistory() {
       const t = new Date(item.ts);
       const hhmm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
       el.innerHTML =
-        `<span class="t">${hhmm}</span><span class="name">${esc(item.title || item.theme)}</span>` +
+        `<span class="t">${hhmm}</span><span class="name">${esc(item.title || item.theme)}${item.album ? `<span class="album">《${esc(item.album)}》</span>` : ''}</span>` +
         `<span class="acts"><button class="hbtn fav${item.fav ? ' on' : ''}">${item.fav ? '★' : '☆'}</button>` +
+        `<button class="hbtn rg" title="按原设定再写一首">↻</button>` +
+        `<button class="hbtn ab" title="${item.album ? '改专辑名 / 留空移出专辑' : '归入专辑'}">${item.album ? '▣' : '▢'}</button>` +
         `<button class="hbtn rn">✎</button><button class="hbtn ex">⬇</button><span class="del">✕</span></span>`;
       el.querySelector('.fav').addEventListener('click', (ev) => {
         ev.stopPropagation();
@@ -1227,6 +1334,20 @@ function renderHistory() {
       el.querySelector('.ex').addEventListener('click', (ev) => {
         ev.stopPropagation();
         downloadTxt(item);
+      });
+      el.querySelector('.rg').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        restore(item);
+        generate();
+      });
+      el.querySelector('.ab').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const name = prompt('专辑名（留空 = 移出专辑）', item.album || '');
+        if (name != null) {
+          item.album = name.trim() || null;
+          saveHistory();
+          renderHistory();
+        }
       });
       el.querySelector('.del').addEventListener('click', (ev) => {
         ev.stopPropagation();
@@ -1285,6 +1406,26 @@ function restore(item) {
   restoreVersions(item);
   toast('已回填历史 ✦');
 }
+
+$('#histTracklist').addEventListener('click', () => {
+  const albums = new Map();
+  for (const x of histAll) {
+    if (!x.album) continue;
+    if (!albums.has(x.album)) albums.set(x.album, []);
+    albums.get(x.album).push(x);
+  }
+  if (!albums.size) { toast('还没有专辑：点条目的 ▢ 归入专辑'); return; }
+  const text = [...albums.entries()]
+    .map(([name, items]) => `【${name}】\n${items.map((x, i) => `${i + 1}. ${x.title || x.theme} — ${x.style_tags || ''}`).join('\n')}`)
+    .join('\n\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ilyrics-tracklist.txt';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
+  toast(`${albums.size} 个专辑 tracklist 已导出 ☰`);
+});
 
 $('#histExport').addEventListener('click', () => {
   if (!histAll.length) { toast('历史是空的'); return; }

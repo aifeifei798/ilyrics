@@ -133,6 +133,7 @@
         <button class="copy" data-copy="title">复制</button>
       </div>
       <div class="card-body title-body editable" id="titleOut" contenteditable="true" spellcheck="false"><span class="placeholder">等待生成…</span></div>
+      <div class="chips" id="titleDrafts" hidden></div>
     </article>
 
     <article class="card" id="styleCard">
@@ -148,7 +149,7 @@
         <span class="card-label">Lyrics</span>
         <button class="copy" data-copy="lyrics">复制</button>
       </div>
-      <pre class="card-body lyrics-body" id="lyricsOut"><span class="placeholder">带 [VERSE] [CHORUS] 大写标签的完整歌词</span></pre>
+      <pre class="card-body lyrics-body editable" id="lyricsOut" contenteditable="plaintext-only" spellcheck="false"><span class="placeholder">带 [VERSE] [CHORUS] 大写标签的完整歌词</span></pre>
       <div class="stats" id="statsOut"></div>
       <div class="rhyme" id="rhymeBox" hidden></div>
       <div class="chips rewrite-row" id="rewriteRow"></div>
@@ -170,7 +171,7 @@
   </section>
 
   <aside class="history">
-    <div class="label">历史记录 <span id="histCount">0</span><span class="hist-tools"><button class="hbtn" id="histExport" title="导出全部历史 JSON">⬇</button><button class="hbtn" id="histImportBtn" title="导入历史 JSON">⬆</button></span></div>
+    <div class="label">历史记录 <span id="histCount">0</span><span class="hist-tools"><button class="hbtn" id="histTracklist" title="导出专辑 tracklist">☰</button><button class="hbtn" id="histExport" title="导出全部历史 JSON">⬇</button><button class="hbtn" id="histImportBtn" title="导入历史 JSON">⬆</button></span></div>
     <input type="file" id="histImport" hidden accept=".json,application/json" />
     <input class="dd-search" id="histSearch" placeholder="搜索历史…" />
     <div class="hist-list" id="histList"></div>
