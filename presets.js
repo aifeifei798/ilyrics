@@ -8,6 +8,8 @@ window.PRESETS = {
   ],
 
   structs: {
+    solo: '[INTRO] [VERSE] [CHORUS] [VERSE] [CHORUS] [BRIDGE] [CHORUS] [OUTRO] [END]',
+    group: '[INTRO] [VERSE] [PRE-CHORUS] [CHORUS] [VERSE] [PRE-CHORUS] [CHORUS] [BRIDGE] [CHORUS] [OUTRO] [END]',
     pop: '[INTRO] [VERSE] [PRE-CHORUS] [CHORUS] [POST-CHORUS] [VERSE] [CHORUS] [BRIDGE] [CHORUS] [OUTRO] [END]',
     rap: '[INTRO] [HOOK] [VERSE] [HOOK] [VERSE] [HOOK] [OUTRO] [END]',
     rock: '[INTRO] [VERSE] [CHORUS] [VERSE] [CHORUS] [BRIDGE] [GUITAR SOLO] [CHORUS] [OUTRO] [END]',
@@ -18,6 +20,8 @@ window.PRESETS = {
   },
 
   structTpl: [
+    { id: 'solo', label: '通用单人' },
+    { id: 'group', label: '通用团' },
     { id: 'pop', label: '流行标准' },
     { id: 'rap', label: 'Rap 流水' },
     { id: 'rock', label: '摇滚' },
