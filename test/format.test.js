@@ -47,6 +47,14 @@ test('rhymeKey: 十三辙分组与英文尾音', () => {
   assert.equal(rhymeKey('see the night'), rhymeKey('in the city light'));
 });
 
+test('spliceRewritten: 同名段按出现次序定位（occ 参数）', () => {
+  const lyrics = '[VERSE]\n甲\n乙\n\n[CHORUS]\n丙\n丁\n\n[VERSE]\n戊\n己\n\n[END]';
+  const out = spliceRewritten(lyrics, 'VERSE', ['[VERSE]', 'X1', 'X2'], 1);
+  assert.ok(out.includes('X1') && out.includes('X2'));
+  assert.ok(out.includes('甲') && out.includes('丙'));
+  assert.ok(!out.includes('戊'));
+});
+
 test('ad-lib 括号行：识别且不参与可唱性打分', () => {
   assert.ok(isAdlib('(Drop the bass!)'));
   assert.ok(!isAdlib('月光洒在窗上'));

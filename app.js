@@ -796,13 +796,18 @@ function normalizeBlock(raw, tag) {
   return kept;
 }
 
-function spliceRewritten(orig, tag, blockLines) {
+function spliceRewritten(orig, tag, blockLines, occ = 0) {
   const lines = orig.split('\n');
   const isTag = (ln) => /^\s*\[[^\]]+\]/.test(ln);
-  const start = lines.findIndex((ln) => {
-    const m = ln.match(/^\s*\[([^\]]+)\]/);
-    return m && m[1] === tag;
-  });
+  let start = -1;
+  let seen = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^\s*\[([^\]]+)\]/);
+    if (m && m[1] === tag) {
+      if (seen === occ) { start = i; break; }
+      seen++;
+    }
+  }
   if (start === -1) return null;
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i++) {
@@ -813,16 +818,18 @@ function spliceRewritten(orig, tag, blockLines) {
   return [...lines.slice(0, start), ...repl, ...lines.slice(end)].join('\n');
 }
 
-async function rewriteSection(tag, extra, label) {
+async function rewriteSection(tag, extra, label, occ = 0) {
   if (state.busy) return 'fail';
   if (!state.out.lyrics) { toast('先生成一首歌'); return 'fail'; }
   state.busy = true;
   setBusy(true);
   lastTps = null;
 
+  const posHint = occ > 0 ? `（${tag.split('|')[0]} 在全文出现多次，要重写的是第 ${occ + 1} 次出现的那一段）` : '';
+
   const messages = [
     { role: 'system', content: '你是顶级作词人。重写歌词中指定的段落，只输出该段落本身：第一行原样保留段落标签行，随后是该段的新内容，行数与原段相近。括号 ad-lib 行（单独成行的圆括号句）可保留或换成新的。重写后保持原段的隐喻脉络与行密度。禁止输出其他段落，禁止 JSON，禁止解释，禁止 markdown 围栏。' },
-    { role: 'user', content: `歌词全文：\n${state.out.lyrics}\n\n只重写 [${tag}] 段落：${extra ? '该段内容全部重写，语言和人声标注保持一致。只输出这一段。\n附加要求：' + extra : '该段内容全部重写，语言、押韵风格、人声标注保持一致。只输出这一段。'}` },
+    { role: 'user', content: `歌词全文：\n${state.out.lyrics}\n\n只重写 [${tag}] 段落${posHint}：${extra ? '该段内容全部重写，语言和人声标注保持一致。只输出这一段。\n附加要求：' + extra : '该段内容全部重写，语言、押韵风格、人声标注保持一致。只输出这一段。'}` },
   ];
 
   try {
@@ -832,7 +839,7 @@ async function rewriteSection(tag, extra, label) {
       (content) => { $('#lyricsOut').innerHTML = renderLyrics(content) + '<span class="caret">▍</span>'; },
     );
     const block = normalizeBlock(out, tag);
-    const spliced = block ? spliceRewritten(state.out.lyrics, tag, block) : null;
+    const spliced = block ? spliceRewritten(state.out.lyrics, tag, block, occ) : null;
     const merged = spliced ? normalizeLyrics(spliced) : null;
     if (!merged) {
       toast('没找到对应段落，歌词未改动');
@@ -863,38 +870,52 @@ async function rewriteSection(tag, extra, label) {
   }
 }
 
-async function fixRhymeSections() {
-  if (state.busy) return;
-  if (!state.out.lyrics) { toast('先生成一首歌'); return; }
-  const low = analyzeLyrics(state.out.lyrics).filter((s) => s.lines.length >= 2 && scoreSection(s).rhyme < 0.6);
-  if (!low.length) { toast('没有押韵偏低的段落 ✦'); return; }
-  let fixed = 0;
-  for (const s of low) {
-    toast(`押韵修复 [${s.tag}]… ${fixed + 1}/${low.length}`);
-    const st = await rewriteSection(s.tag, '押韵修复：必须把该段每一行内容都改写（禁止原样返回原行），重写行尾让每行最后一个字都落在同一韵辙里（十三辙：江阳=光霜窗黄上凉伤想响唱，怀来=海爱来开白台，言前=天边前远年见，由求=走酒留旧友秋楼收，灰堆=泪追飞回灰杯，中东=梦风生声灯中钟，人辰=心人真分深音临温）；保持段落语义、语言和人声标注不变，每行控制在 6-12 音节');
-    if (st !== 'ok') break;
-    fixed++;
+function sectionAt(tag, occ) {
+  let n = 0;
+  for (const s of analyzeLyrics(state.out.lyrics)) {
+    if (s.tag === tag) {
+      if (n === occ) return s;
+      n++;
+    }
   }
-  buildRhymeRow();
-  renderRhyme();
-  toast(fixed ? `${fixed} 段押韵已修复 🔧` : '修复没成功，歌词未改动');
+  return null;
 }
 
-async function fixSingSections() {
+async function fixSong() {
   if (state.busy) return;
   if (!state.out.lyrics) { toast('先生成一首歌'); return; }
-  const low = analyzeLyrics(state.out.lyrics).filter((s) => scoreSection(s).syl < 0.75);
-  if (!low.length) { toast('没有音节偏低的段落 ✦'); return; }
-  let fixed = 0;
-  for (const s of low) {
-    toast(`可唱修复 [${s.tag}]… ${fixed + 1}/${low.length}`);
-    const st = await rewriteSection(s.tag, '可唱修复：必须把该段每一行内容都改写（禁止原样返回原行），让每个正文行都落在 6-12 音节（中文约 6-12 字）：超过 12 的行拆成两行或删掉冗词，短于 6 的行补足一个具体意象；保持段落语义、语言、隐喻脉络与括号 ad-lib 行，行尾尽量继续押同一韵辙', '可唱修复 ');
-    if (st !== 'ok') break;
-    fixed++;
+  const occMap = new Map();
+  const targets = [];
+  for (const s of analyzeLyrics(state.out.lyrics)) {
+    const o = occMap.get(s.tag) || 0;
+    occMap.set(s.tag, o + 1);
+    if (scoreSection(s).score < 75) targets.push({ tag: s.tag, occ: o, lines: s.lines.length });
+  }
+  if (!targets.length) { toast('全段可唱性 ≥ 75，不用修复 ✦'); return; }
+  let tries = 0;
+  let aborted = false;
+  for (const t of targets) {
+    let lineNote = '';
+    for (let round = 1; round <= 3; round++) {
+      const cur = sectionAt(t.tag, t.occ);
+      if (!cur) break;
+      const sc = scoreSection(cur);
+      if (sc.score >= 75 && (t.lines < 3 || cur.lines.length >= t.lines - 1)) break;
+      toast(`修复 [${t.tag.split('|')[0]}]… ${sc.score} 分 → 目标 75（第 ${round} 次）`);
+      const needs = [];
+      if (sc.rhyme < 0.65) needs.push('押韵：重写行尾让每行最后一个字都落在同一韵辙里（十三辙：江阳=光霜窗黄上凉伤想响唱，怀来=海爱来开白台，言前=天边前远年见，由求=走酒留旧友秋楼收，灰堆=泪追飞回灰杯，中东=梦风生声灯中钟，人辰=心人真分深音临温），禁止把这些韵辙字表抄进歌词');
+      if (sc.syl < 0.9) needs.push('音节：让每个正文行都落在 6-12 音节（中文约 6-12 字），超过 12 的行拆成两行或删掉冗词（拆出的两行行尾也要押同一韵辙），短于 6 的行补足一个具体意象');
+      if (cur.lines.length < t.lines - 1) lineNote = `上一轮把段落压到 ${cur.lines.length} 行，重写保持 ${t.lines} 行左右（每行一句，禁止把多句合并成一行）`;
+      const st = await rewriteSection(t.tag, `修复到可唱 75 分以上：该段每一行都必须改写成新句子（禁止保留任何原行），押韵与字数同时达标——正文行宁短勿长、每行不超过 12 个字，行数与原段相近。${needs.join('；')}${lineNote ? '；' + lineNote : ''}；保持段落语义、语言、隐喻脉络与括号 ad-lib 行`, '修复 ', t.occ);
+      if (st !== 'ok') { aborted = true; break; }
+      tries++;
+    }
   }
   buildRhymeRow();
   renderRhyme();
-  toast(fixed ? `${fixed} 段可唱性已修复 🎤` : '修复没成功，歌词未改动');
+  const rest = analyzeLyrics(state.out.lyrics).filter((s) => scoreSection(s).score < 75).length;
+  if (aborted) toast(`修复中断：已修 ${tries} 次，还有 ${rest} 段偏低`);
+  else toast(rest ? `已修 ${tries} 次，还有 ${rest} 段偏低（可再点一次） 🔧` : `已修 ${tries} 次，全段可唱性 ≥ 75 ✦`);
 }
 
 function buildRewriteRow() {
@@ -976,19 +997,19 @@ function lastChar(ln) {
 // 十三辙押韵分组：中文按韵辙（同韵母），英文按尾词尾音
 function rhymeKey(ln) {
   const RHYME = {
-    发花: '家花沙茶霞挂话假下夏嫁价化画怕吧爸大嘛麻马码',
-    梭波: '歌河荷何合课热渴舍策侧勒客特得德则择责测册辙默恶饿鹅哦坐错落果火躲破妥磨魄搏桌国说弱或多我波哥过左作',
-    乜斜: '夜月雪别叶野业切接些写谢姐界解鞋歇蝶猎血越约缺液页耶也邪',
-    姑苏: '雨语旅曲许与处住路步雾暮独读哭触悟苦土兔护误顾墓幕慕努鼓补古虎母谱舞五无湖浮壶胡呼夫珠书梳疏初除储厨炉如鱼去须需',
-    怀来: '海爱来外开白台排赖猜拜埋彩呆奶怀带亥腮涯概害帅败霭籁奈买拍迈脉',
-    灰堆: '泪追飞回吹灰杯梅悲醉累美围黑给内雷配悔妹非归菲违肥微威',
-    遥条: '老好脑早宝抱报道号豪高毛矛貌笑叫桥遥飘浇绕烧少潮苗雕耀妙渺超',
-    由求: '走酒留旧友秋楼休游愁流舟头投候口手漏透够后厚斗豆瘦守绣袖奏偶藕收柔酬谋筹',
-    寒安: '天暗晚暖岸乱叹伴半淡感蓝南难安山凡慢翻穿干汉淡弹关弯湾宽软转卷换欢',
-    言前: '天边前远年面见连千钱缘眠牵鲜篇言燕电变点念练',
-    江阳: '光霜窗黄上旁凉伤想藏长海洋茫慌狂亮旷莽香汤荒裳乡方房放忘望旺广唱忙浪响',
-    人辰: '心人真分深针沈吟禁今近印音隐临林淋邻尘晨辰神身仁刃任认韧欣辛新春唇纯顺文纹蚊坟纷温',
-    中东: '梦风生声成城灯等冷恒朋腾空中钟公冲终融绒痛通送控动洞红翁嗡英盈迎影景静明青清晴星行停灵冰凝',
+    发花: '家花沙茶霞挂话假下夏嫁价化画怕吧爸大嘛麻马码加他她妈答达撒啦啊呀哇啥哪杀拿擦拉巴差牙呀芽崖押鸭驾瓜华雅亚吓夸垮蛙娃滑辣发塔踏乏渣叉炸它',
+    梭波: '歌河荷何合课热渴舍策侧勒客特得德则择责测册辙默恶饿鹅哦坐错落果火躲破妥磨魄搏桌国说弱或多我波哥过左作昨错做摸泊伯薄播活夺拖梭罗萝螺骡婆驼魔莫膜漠墨捉琢浊灼烁着泽色涩隔格阁壳喝赫鹤核刻社射涉摄舌折撤扯搓窝卧握佛',
+    乜斜: '夜月雪别叶野业切接些写谢姐界解鞋歇蝶猎血越约缺液页耶也邪借街介戒届截洁捷劫节跌叠爹贴铁帖屑裂灭撇瞥阅跃乐却雀学绝决穴',
+    姑苏: '雨语旅曲许与处住路步雾暮独读哭触悟苦土兔护误顾墓幕慕努鼓补古虎母谱舞五无湖浮壶胡呼夫珠书梳疏初除储厨炉如鱼去须需组租苏乌铺布福族突图徒途涂凸秃吐土出烛竹逐猪蛛居拘局菊趣取趋虚徐余渔娱愚屿玉域狱绿律虑滤吕缕侣举矩堵睹肚杜赌主住驻筑柱铸输熟赎属术述数殊抒舒叔速束服复腹伏屋物输枢酥粗阻祖组卒',
+    怀来: '海爱来外开白台排赖猜拜埋彩呆奶怀带亥腮涯概害帅败霭籁奈买拍迈脉哀埃哉胎才材财灾栽宰再改待代盖采菜碍派麦耐乃抬孩淮槐怪快',
+    灰堆: '泪追飞回吹灰杯梅悲醉累美围黑给内雷配悔妹非归菲违肥微威谁北贝倍煤玫没每眉魅碑背催堆对队退推辉挥毁萎尾未位卫魏唯惟',
+    遥条: '老好脑早宝抱报道号豪高毛矛貌笑叫桥遥飘浇绕烧少潮苗雕耀妙渺超毫蒿耗浩告刀逃桃淘涛滔劳牢袍跑泡暴爆堡帽庙教交焦骄娇礁乔巧悄描秒钥谣摇尧漂',
+    由求: '走酒留旧友秋楼休游愁流舟头投候口手漏透够后厚斗豆瘦守绣袖奏偶藕收柔酬谋筹由油尤邮优悠忧幼有酉诱柚又右佑宥首授受售寿兽囚揪究九久就救刘流牛纽扭钮娄陋舟周州洲帚咒皱沟狗构购勾侯猴抖逗窦',
+    寒安: '天暗晚暖岸乱叹伴半淡感蓝南难安山凡慢翻穿干汉弹关弯湾宽软转卷换欢案单看寒残满漫判盼喊斑烂段断短端团官冠观贯灌完万晚玩盘',
+    言前: '天边前远年面见连千钱缘眠牵鲜篇言燕电变点念练添田甜店典淀歉浅潜钳迁件建健键剑尖渐剪煎茧扁便遍片骗宴验焰炎盐岩沿严烟',
+    江阳: '光霜窗黄上旁凉伤想藏长海洋茫慌狂亮旷莽香汤荒裳乡方房放忘望旺广唱忙浪响当党堂趟烫撞状装庄仗障章张谎脏淌',
+    人辰: '心人真分深针沈吟禁今近印音隐临林淋邻尘晨辰神身仁刃任认韧欣辛新春唇纯顺文纹蚊坟纷温本门闷笨奔粉奋份根跟痕恩们森沉陈诊枕甚什忍珍疹怎蹲存纯醇论焚稳',
+    中东: '梦风生声成城灯等冷恒朋腾空中钟公冲终融绒痛通送控动洞红翁嗡英盈迎影景静明青清晴星行停灵冰凝东冬忠宗踪总功攻宫弓共供恭鸿洪宏弘蓬篷盟蒙仲众重崇峰锋丰封疯讽奉凤逢登能衡崩绷营井警境镜情请刑型形零凌铃平萍瓶凭屏定令领另应硬映病并兵丙饼名铭命',
   };
   const clean = ln.replace(/[^\p{L}\p{N}]/gu, '');
   if (!clean) return '';
@@ -1015,16 +1036,10 @@ function buildRhymeRow() {
     buildRhymeRow();
     renderRhyme();
   }));
-  const low = analyzeLyrics(state.out.lyrics).filter((s) => s.lines.length >= 2 && scoreSection(s).rhyme < 0.6);
+  const low = analyzeLyrics(state.out.lyrics).filter((s) => scoreSection(s).score < 75);
   if (low.length) {
-    const fix = chipEl(`🔧 押韵修复 ×${low.length}`, false, fixRhymeSections);
-    fix.title = '按押韵覆盖率，逐段重写押韵偏低的段落（语义与语言保持）';
-    row.appendChild(fix);
-  }
-  const sing = analyzeLyrics(state.out.lyrics).filter((s) => scoreSection(s).syl < 0.75);
-  if (sing.length) {
-    const fix = chipEl(`🎤 可唱修复 ×${sing.length}`, false, fixSingSections);
-    fix.title = '按音节达标率，逐段把超长/超短行拉回 6-12 单位（语义、ad-lib 与押韵尽量保持）';
+    const fix = chipEl(`🔧 一键修复 ×${low.length}`, false, fixSong);
+    fix.title = '把可唱性偏低（<75）的段逐段重写：押韵与音节一起修，每段最多重试 3 次，目标全段 ≥75；同名段按出现次序分别定位';
     row.appendChild(fix);
   }
 }
@@ -1038,10 +1053,10 @@ function renderRhyme() {
   }
   const secs = analyzeLyrics(state.out.lyrics);
   const scored = secs.map((s) => ({ s, ...scoreSection(s) }));
-  const low = scored.filter((x) => x.score < 70);
+  const low = scored.filter((x) => x.score < 75);
   const advice = low.length
-    ? `<div class="r-advice">可唱性偏低，建议重写：${low.map((x) => `${esc(x.s.tag)}（${x.score} 分，押韵 ${Math.round(x.rhyme * 100)}%·音节 ${Math.round(x.syl * 100)}%）`).join('、')}</div>`
-    : scored.length ? '<div class="r-advice ok">全段可唱性 ≥ 70，不用重写 ✦</div>' : '';
+    ? `<div class="r-advice">可唱性偏低（<75），点「一键修复」：${low.map((x) => `${esc(x.s.tag)}（${x.score} 分，押韵 ${Math.round(x.rhyme * 100)}%·音节 ${Math.round(x.syl * 100)}%）`).join('、')}</div>`
+    : scored.length ? '<div class="r-advice ok">全段可唱性 ≥ 75，不用修复 ✦</div>' : '';
   box.innerHTML = advice + scored.map(({ s, score }) => {
     const letters = new Map();
     const rows = s.lines.map((ln) => {
@@ -1053,7 +1068,7 @@ function renderRhyme() {
       return `<div class="r-line"><span class="r-badge">${letters.get(k) || ''}</span><span class="r-units">${lineUnits(ln)} 单位</span><span class="r-text">${esc(ln)}</span></div>`;
     }).join('');
     const lens = s.lines.filter((ln) => !isAdlib(ln)).map(lineUnits);
-    const cls = score >= 85 ? 'good' : score < 70 ? 'low' : '';
+    const cls = score >= 85 ? 'good' : score < 75 ? 'low' : '';
     return `<div class="r-sec"><div class="r-tag">${esc(s.tag)} · ${s.lines.length} 行${lens.length ? ` · ${Math.min(...lens)}–${Math.max(...lens)} 单位/行` : ''} · <span class="r-score ${cls}">可唱 ${score}</span></div>${rows}</div>`;
   }).join('');
   box.hidden = false;
