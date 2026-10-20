@@ -331,6 +331,34 @@ function renderLyrics(text) {
 
 let versions = [];
 let verIdx = 0;
+let curHistTs = null;
+
+function syncHistory(note) {
+  const h = histAll.find((x) => x.ts === curHistTs);
+  if (h) {
+    h.title = state.out.title || h.title;
+    h.style_tags = state.out.style_tags || h.style_tags;
+    h.lyrics = versions[verIdx] ? versions[verIdx].lyrics : state.out.lyrics;
+    h.versions = versions.map((v) => ({ lyrics: v.lyrics, note: v.note }));
+    h.verIdx = verIdx;
+  } else {
+    addHistory(state.out, note || $('#theme').value.trim() || '局部重写');
+    curHistTs = histAll[0].ts;
+  }
+  saveHistory();
+}
+
+function restoreVersions(item) {
+  const vs = item.versions && item.versions.length
+    ? item.versions.map((v) => ({ lyrics: v.lyrics, note: v.note }))
+    : [{ lyrics: item.lyrics, note: '原版' }];
+  versions = vs;
+  verIdx = item.verIdx != null ? Math.min(Math.max(item.verIdx, 0), vs.length - 1) : 0;
+  state.out = { ...state.out, lyrics: versions[verIdx].lyrics };
+  $('#lyricsOut').innerHTML = renderLyrics(versions[verIdx].lyrics);
+  buildRewriteRow();
+  renderVerRow();
+}
 
 function resetVersions(lyrics) {
   versions = lyrics ? [{ lyrics, note: '原版' }] : [];
@@ -360,6 +388,7 @@ function renderVerRow() {
       state.out = { ...state.out, lyrics: versions[i].lyrics };
       renderFinal(state.out);
       renderVerRow();
+      syncHistory();
       toast(`切到 V${i + 1}（${v.note}）`);
     });
     b.title = `切换到 V${i + 1}：${v.note}`;
@@ -386,6 +415,7 @@ function resetOut() {
   $('#rewriteRow').innerHTML = '';
   $('#statsOut').textContent = '';
   resetVersions('');
+  curHistTs = null;
   sunoStep = 0;
   setSunoBtnLabel();
 }
@@ -500,6 +530,7 @@ async function generate() {
     renderFinal(parsed);
     resetVersions(parsed.lyrics);
     addHistory(parsed, theme);
+    curHistTs = histAll[0].ts;
     toast('生成完成 ✦');
   } catch (e) {
     if (e.name === 'AbortError') toast('已停止生成');
@@ -571,10 +602,16 @@ async function rewriteSection(tag) {
       renderFinal(state.out);
       return;
     }
-    const updated = { title: state.out.title, style_tags: state.out.style_tags, lyrics: merged };
+    const curTitle = $('#titleOut').textContent.trim();
+    const curTags = $('#tagsOut').textContent.trim();
+    const updated = {
+      title: curTitle && !curTitle.startsWith('（') ? curTitle : state.out.title,
+      style_tags: curTags && !curTags.startsWith('（') ? curTags : state.out.style_tags,
+      lyrics: merged,
+    };
     renderFinal(updated);
     pushVersion(merged, '重写 ' + tag);
-    addHistory(updated, $('#theme').value.trim() || '局部重写 ' + tag);
+    syncHistory('局部重写 ' + tag);
     toast(`[${tag}] 已重写 ✦`);
   } catch (e) {
     if (e.name === 'AbortError') toast('已停止重写');
@@ -694,15 +731,6 @@ $('#blindBtn').addEventListener('click', () => {
   renderChips();
   refreshDropdowns();
   toast('盲盒配方已装填 🎰');
-});
-$('#saveEditBtn').addEventListener('click', () => {
-  const title = $('#titleOut').textContent.replace('▍', '').trim();
-  const tags = $('#tagsOut').textContent.replace('▍', '').trim();
-  if (!state.out.lyrics && !title) { toast('还没有内容可保存'); return; }
-  state.out = { title, style_tags: tags, lyrics: state.out.lyrics };
-  renderFinal(state.out);
-  addHistory(state.out, $('#theme').value.trim() || title || '手动修改');
-  toast('修改已保存进历史 ✦');
 });
 
 /* ---------- copy ---------- */
@@ -915,7 +943,8 @@ function restore(item) {
   renderChips();
   refreshDropdowns();
   renderFinal({ title: item.title, style_tags: item.style_tags, lyrics: item.lyrics });
-  resetVersions(item.lyrics);
+  curHistTs = item.ts;
+  restoreVersions(item);
   toast('已回填历史 ✦');
 }
 
