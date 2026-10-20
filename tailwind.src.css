@@ -118,6 +118,12 @@
   }
   .ghost.active { @apply border-neon-a/50 text-neon-a; }
 
+  .tip { @apply relative px-[10px] py-[6px]; }
+  .tip::after {
+    @apply pointer-events-none absolute left-1/2 top-full z-50 mt-[6px] -translate-x-1/2 rounded-[8px] border border-neon-b/40 bg-[rgba(16,13,24,0.96)] px-[10px] py-[5px] font-mono text-[11px] whitespace-nowrap text-neon-b opacity-0 transition-opacity duration-150 content-[attr(data-tip)];
+  }
+  .tip:hover::after { @apply opacity-100; }
+
   .dd-select {
     @apply w-full cursor-pointer rounded-[10px] border border-neon-b/30 bg-[rgba(24,20,34,0.9)] px-3 py-[9px] font-mono text-[12px] text-text outline-none;
     @apply focus:border-neon-b/60;

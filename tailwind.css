@@ -546,6 +546,46 @@
     }
     color: var(--color-neon-a);
   }
+  .tip {
+    position: relative;
+    padding-inline: 10px;
+    padding-block: 6px;
+  }
+  .tip::after {
+    pointer-events: none;
+    position: absolute;
+    top: 100%;
+    left: calc(1 / 2 * 100%);
+    z-index: 50;
+    margin-top: 6px;
+    --tw-translate-x: calc(calc(1 / 2 * 100%) * -1);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+    border-radius: 8px;
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+    border-color: color-mix(in srgb, #2fd8ff 40%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-neon-b) 40%, transparent);
+    }
+    background-color: rgba(16,13,24,0.96);
+    padding-inline: 10px;
+    padding-block: 5px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    white-space: nowrap;
+    color: var(--color-neon-b);
+    opacity: 0%;
+    transition-property: opacity;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+    --tw-duration: 150ms;
+    transition-duration: 150ms;
+    --tw-content: attr(data-tip);
+    content: var(--tw-content);
+  }
+  .tip:hover::after {
+    opacity: 100%;
+  }
   .dd-select {
     width: 100%;
     cursor: pointer;
