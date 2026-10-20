@@ -334,6 +334,8 @@ function renderFinal(res) {
   $('#lyricsOut').innerHTML = res.lyrics ? renderLyrics(res.lyrics) : '<span class="placeholder">（无歌词）</span>';
   buildRewriteRow();
   updateStats();
+  sunoStep = 0;
+  setSunoBtnLabel();
 }
 
 function resetOut() {
@@ -343,6 +345,8 @@ function resetOut() {
   $('#reasonOut').textContent = '';
   $('#rewriteRow').innerHTML = '';
   $('#statsOut').textContent = '';
+  sunoStep = 0;
+  setSunoBtnLabel();
 }
 
 function setBusy(on) {
@@ -599,10 +603,39 @@ document.querySelectorAll('.copy').forEach((btn) => {
   });
 });
 
-$('#copyAllBtn').addEventListener('click', () => {
+/* ---------- Suno staged copy ---------- */
+
+let sunoStep = 0;
+function setSunoBtnLabel() {
+  $('#copyAllBtn').textContent =
+    sunoStep === 0 ? '⧉ Suno 第一步：复制 Style'
+    : sunoStep === 1 ? '⧉ Suno 第二步：复制 Lyrics'
+    : '⧉ Suno 复制完成 · 点一下重来';
+}
+
+$('#copyAllBtn').addEventListener('click', async () => {
   const o = state.out;
   if (!o.lyrics) { toast('还没有内容可复制'); return; }
-  copyText(`Title: ${o.title}\n\nStyle: ${o.style_tags}\n\nLyrics:\n${o.lyrics}`);
+  if (sunoStep >= 2) {
+    sunoStep = 0;
+    setSunoBtnLabel();
+    toast('从头再来：先复制 Style');
+    return;
+  }
+  const step0HasTags = sunoStep === 0 && !!o.style_tags;
+  try {
+    await navigator.clipboard.writeText(step0HasTags ? o.style_tags : o.lyrics);
+    if (step0HasTags) {
+      sunoStep = 1;
+      toast('已复制 Style 标签 → 粘贴进 Suno 的 Styles 框，再点一下复制歌词 ✓');
+    } else {
+      sunoStep = 2;
+      toast('已复制歌词 → 粘贴进 Suno 的 Lyrics 框 ✓');
+    }
+    setSunoBtnLabel();
+  } catch {
+    toast('复制失败（浏览器限制）');
+  }
 });
 
 /* ---------- history ---------- */
