@@ -818,7 +818,7 @@ function spliceRewritten(orig, tag, blockLines, occ = 0) {
   return [...lines.slice(0, start), ...repl, ...lines.slice(end)].join('\n');
 }
 
-async function rewriteSection(tag, extra, label, occ = 0) {
+async function rewriteSection(tag, extra, label, occ = 0, quiet = false) {
   if (state.busy) return 'fail';
   if (!state.out.lyrics) { toast('先生成一首歌'); return 'fail'; }
   state.busy = true;
@@ -854,9 +854,11 @@ async function rewriteSection(tag, extra, label, occ = 0) {
       lyrics: merged,
     };
     renderFinal(updated);
-    pushVersion(merged, (label || (extra ? '押韵修复 ' : '重写 ')) + tag);
-    syncHistory('局部重写 ' + tag);
-    toast(`[${tag}] 已重写 ✦`);
+    if (!quiet) {
+      pushVersion(merged, (label || (extra ? '押韵修复 ' : '重写 ')) + tag);
+      syncHistory('局部重写 ' + tag);
+      toast(`[${tag}] 已重写 ✦`);
+    }
     return 'ok';
   } catch (e) {
     if (e.name === 'AbortError') toast('已停止重写');
@@ -906,16 +908,24 @@ async function fixSong() {
       if (sc.rhyme < 0.65) needs.push('押韵：重写行尾让每行最后一个字都落在同一韵辙里（十三辙：江阳=光霜窗黄上凉伤想响唱，怀来=海爱来开白台，言前=天边前远年见，由求=走酒留旧友秋楼收，灰堆=泪追飞回灰杯，中东=梦风生声灯中钟，人辰=心人真分深音临温），禁止把这些韵辙字表抄进歌词');
       if (sc.syl < 0.9) needs.push('音节：让每个正文行都落在 6-12 音节（中文约 6-12 字），超过 12 的行拆成两行或删掉冗词（拆出的两行行尾也要押同一韵辙），短于 6 的行补足一个具体意象');
       if (cur.lines.length < t.lines - 1) lineNote = `上一轮把段落压到 ${cur.lines.length} 行，重写保持 ${t.lines} 行左右（每行一句，禁止把多句合并成一行）`;
-      const st = await rewriteSection(t.tag, `修复到可唱 75 分以上：该段每一行都必须改写成新句子（禁止保留任何原行），押韵与字数同时达标——正文行宁短勿长、每行不超过 12 个字，行数与原段相近。${needs.join('；')}${lineNote ? '；' + lineNote : ''}；保持段落语义、语言、隐喻脉络与括号 ad-lib 行`, '修复 ', t.occ);
+      const st = await rewriteSection(t.tag, `修复到可唱 75 分以上：该段每一行都必须改写成新句子（禁止保留任何原行），押韵与字数同时达标——正文行宁短勿长、每行不超过 12 个字，行数与原段相近。${needs.join('；')}${lineNote ? '；' + lineNote : ''}；保持段落语义、语言、隐喻脉络与括号 ad-lib 行`, '修复 ', t.occ, true);
       if (st !== 'ok') { aborted = true; break; }
       tries++;
     }
   }
   buildRhymeRow();
   renderRhyme();
+  const done = targets.filter((t) => {
+    const c = sectionAt(t.tag, t.occ);
+    return c && scoreSection(c).score >= 75;
+  }).length;
+  if (done) {
+    pushVersion(state.out.lyrics, `🔧 一键修复 ${done} 段`);
+    syncHistory('一键修复');
+  }
   const rest = analyzeLyrics(state.out.lyrics).filter((s) => scoreSection(s).score < 75).length;
-  if (aborted) toast(`修复中断：已修 ${tries} 次，还有 ${rest} 段偏低`);
-  else toast(rest ? `已修 ${tries} 次，还有 ${rest} 段偏低（可再点一次） 🔧` : `已修 ${tries} 次，全段可唱性 ≥ 75 ✦`);
+  if (aborted) toast(`修复中断：${done} 段已达标锁定，${rest} 段仍偏低`);
+  else toast(rest ? `${done} 段已达标锁定，还有 ${rest} 段偏低（可再点一次） 🔧` : `${done} 段全部达标锁定 ✦（只记了 1 个版本）`);
 }
 
 function buildRewriteRow() {
