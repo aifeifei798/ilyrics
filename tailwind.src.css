@@ -308,6 +308,7 @@
     @apply inline-block min-w-[22px] rounded-[4px] border border-neon-a/40 px-[6px] text-center text-[10px] text-neon-a;
   }
   .r-units { @apply min-w-[60px] text-dim-2; }
+  .r-badge.adlib { @apply border-gold-2/40 text-gold-2; }
   .r-text { @apply truncate text-lyrics; }
 
   .chip.warn { @apply border-neon-a/50 text-neon-a; }

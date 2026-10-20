@@ -1406,6 +1406,13 @@
     min-width: 60px;
     color: var(--color-dim-2);
   }
+  .r-badge.adlib {
+    border-color: color-mix(in srgb, #f5c46c 40%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-gold-2) 40%, transparent);
+    }
+    color: var(--color-gold-2);
+  }
   .r-text {
     overflow: hidden;
     text-overflow: ellipsis;

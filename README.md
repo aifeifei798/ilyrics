@@ -27,7 +27,8 @@
 - **参数面板**：模型下拉（从上游 `/v1/models` 拉取）、temperature、max_tokens 滑杆
 - **历史侧栏**：收藏（★置顶）、重命名、导出 txt，点条目一键回填全部选项（含 remix 原作与版本状态）；↻ 按原设定一键再写一首；▢ 归入专辑（条目标显示专辑名），☰ 导出全部专辑 tracklist（歌名 + style tags 汇总）；⬇/⬆ 一键导出/导入全量历史 JSON 备份（按 ts 去重合并）
 - **PWA**：可安装，移动端自适应；style_tags 合并去重并自动规避真实艺人名
-- **单测**：`npm test` 固化格式铁律（标签规范/空行/重写拼接/十三辙押韵分组/可唱性打分/版本 diff）回归测试
+- **歌词厚度**：贯穿全曲的隐喻域逐级升级、每行双小句（画面+隐喻）、副歌 signature hook 贯穿重复、括号 ad-lib 舞台指令行（(Drop the bass!) 这类，Suno 按 ad-lib 唱）、行内跨语言 code-switch；新增「史诗升级」结构模板（含 POST-CHORUS 与 DANCE BREAK）
+- **单测**：`npm test` 固化格式铁律（标签规范/空行/重写拼接/十三辙押韵分组/ad-lib 打分/可唱性打分/版本 diff）回归测试
 - **Tailwind CSS**：样式为 Tailwind v4（`tailwind.src.css`：@theme 霓虹令牌 + @layer components），构建产物 `tailwind.css` 随仓库提交、离线可用；改样式后 `npm install && npm run build` 重新生成
 
 ## 使用

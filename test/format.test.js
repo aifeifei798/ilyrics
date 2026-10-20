@@ -5,7 +5,7 @@ const path = require('node:path');
 
 // app.js 是浏览器脚本，这里按顶层函数名从源码里抠出纯函数再 eval（函数收尾在行首的 }）
 const src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-const names = ['norm', 'canonTagLine', 'normalizeLyrics', 'extractPartial', 'parseFull', 'normalizeBlock', 'spliceRewritten', 'analyzeLyrics', 'lineUnits', 'lastChar', 'rhymeKey', 'scoreSection', 'diffLines'];
+const names = ['norm', 'canonTagLine', 'normalizeLyrics', 'extractPartial', 'parseFull', 'normalizeBlock', 'spliceRewritten', 'analyzeLyrics', 'lineUnits', 'lastChar', 'rhymeKey', 'isAdlib', 'scoreSection', 'diffLines'];
 eval(names.map((n) => src.match(new RegExp(`^function ${n}\\b[\\s\\S]*?^}`, 'm'))[0]).join('\n'));
 
 test('canonTagLine: 大写化 / 去数字 / 保留竖线修饰词', () => {
@@ -45,6 +45,13 @@ test('rhymeKey: 十三辙分组与英文尾音', () => {
   assert.equal(rhymeKey('心事沉在心上'), '江阳');
   assert.equal(rhymeKey('海风吹过来'), rhymeKey('白色告白'));
   assert.equal(rhymeKey('see the night'), rhymeKey('in the city light'));
+});
+
+test('ad-lib 括号行：识别且不参与可唱性打分', () => {
+  assert.ok(isAdlib('(Drop the bass!)'));
+  assert.ok(!isAdlib('月光洒在窗上'));
+  const s = analyzeLyrics('[CHORUS]\n月光洒在窗上\n心事沉在心上\n(Drop the bass!)\n(Listen)\n')[0];
+  assert.ok(scoreSection(s).score >= 70);
 });
 
 test('scoreSection: 押韵覆盖率与音节区间打分', () => {

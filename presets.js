@@ -17,11 +17,13 @@ window.PRESETS = {
     edm: '[INTRO] [VERSE] [PRE-CHORUS] [CHORUS] [VERSE] [BUILD] [DROP] [BREAKDOWN] [OUTRO] [END]',
     folk: '[INTRO] [VERSE] [CHORUS] [VERSE] [CHORUS] [BRIDGE] [OUTRO] [END]',
     jazz: '[INTRO] [VERSE] [CHORUS] [VERSE] [CHORUS] [INSTRUMENTAL] [OUTRO] [END]',
+    epic: '[INTRO] [VERSE] [PRE-CHORUS] [CHORUS] [POST-CHORUS] [VERSE] [PRE-CHORUS] [CHORUS] [BRIDGE] [DANCE BREAK] [CHORUS] [OUTRO] [END]',
   },
 
   structTpl: [
     { id: 'solo', label: '通用单人' },
     { id: 'group', label: '通用团' },
+    { id: 'epic', label: '史诗升级' },
     { id: 'pop', label: '流行标准' },
     { id: 'rap', label: 'Rap 流水' },
     { id: 'rock', label: '摇滚' },

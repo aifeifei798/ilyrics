@@ -197,7 +197,7 @@ function composeTags() {
 function buildSystem() {
   const langRule = state.langs.length === 1
     ? P.langs.find((l) => l.id === state.langs[0]).rule
-    : `歌词正文可在这些语言间自然混写：${state.langs.map((id) => P.langs.find((l) => l.id === id).label).join('、')}。同一段落内保持同一语言，段落间可自然切换，副歌可用任一语言的 hook，歌名用其中任一语言。`;
+    : `歌词正文以列表第一种语言（${state.langs.map((id) => P.langs.find((l) => l.id === id).label).join('、')}中的第一个）为主，其余语言做点睛词与副歌 hook：每段至少一行在同一行内跨语言切换（code-switch），外语词嵌在行首或行中、行尾落在主语言以保住押韵（如「Karma 循环往复无休」），禁止整行只用非主语言；副歌 signature hook 必须含非主语言的词但行尾落在主语言，歌名用其中任一语言。`;
   const guides = [];
   if (state.artists.length) guides.push('歌手参考：' + state.artists.map((a) => a.guide).join('；'));
   if (state.styleCards.length) guides.push('风格参考：' + state.styleCards.map((s) => s.guide).join('；'));
@@ -213,7 +213,7 @@ function buildSystem() {
     'JSON 字段：',
     '- title：歌名，简短有画面感。',
     '- style_tags：全英文风格标签，逗号分隔，含流派、人声性别、乐器、氛围、BPM。可借用 Suno 音乐术语增强控制：速度（adagio/andante/allegro/presto/rubato）、力度（crescendo/pianissimo/fortissimo）、织体（sparse/dense/layering）、人声技巧（falsetto/belt/melisma/crooning）、制作效果（reverb-heavy/tape compression/distorted/filtered）、调性与拍子（minor key/major key/3/4 waltz）。绝对禁止出现任何真实艺人、乐队或品牌名称（平台会屏蔽），用描述性词汇代替。',
-    '- lyrics：带 Suno 段落标签的完整歌词，遵守格式铁律：标签行全大写且不含数字与标点（[VERSE] [PRE-CHORUS] [CHORUS] [POST-CHORUS] [BRIDGE] [OUTRO] [END]），标签行单独成行；每个段落之间空一行且只空一行；可在标签行内用竖线叠加指令，如 [CHORUS | anthemic | stacked harmonies]、[VERSE | whispered vocals | low energy]；最后一行输出 [END] 强制收尾。歌词内不得出现任何说明性文字。',
+    '- lyrics：带 Suno 段落标签的完整歌词，遵守格式铁律：标签行全大写且不含数字与标点（[VERSE] [PRE-CHORUS] [CHORUS] [POST-CHORUS] [BRIDGE] [DANCE BREAK] [OUTRO] [END]），标签行单独成行；每个段落之间空一行且只空一行；可在标签行内用竖线叠加指令，如 [CHORUS | anthemic | stacked harmonies]、[VERSE | whispered vocals | low energy]；最后一行输出 [END] 强制收尾。除括号 ad-lib 行外歌词内不得出现说明性文字：可用单独成行的圆括号句做舞台指令与钩子回响，如 (Listen)、(Drop the bass!)、(Tick, tock, loop inside my head)，每段至多 2-3 行。',
     `歌词语言规则：${langRule}`,
     `曲风写法：${guides.join('；') || '流行歌标准写法'}`,
     `情绪基调：${moodWords}`,
@@ -221,6 +221,7 @@ function buildSystem() {
     ...(state.glossary.length ? ['用户指定的音乐术语必须原样出现在 style_tags 中：' + state.glossary.map((g) => g.tag).join(', ')] : []),
     ...(remixRule ? [remixRule] : []),
     '每行歌词控制在 6-12 个音节（中文约 6-12 字），人声对齐更自然；每段 4-6 行（Rap/Trap 按写法指南调整），全曲控制在 45 行以内，押韵自然。',
+    '歌词厚度要求：为整首歌选定一个贯穿全曲的隐喻域（如轮回/loop/glitch/karma/星轨/深海/潮汐），同一意象从 verse 到 bridge 逐级升级；每行歌词写两个小句（具体画面 + 隐喻或动作），禁止空泛直白陈述；副歌有一句 signature hook 贯穿每次重复（可每次微变）；叙事逐级递进：铺垫→蓄力→爆发→回响→反转或最高潮→收束；段落之间用意象呼应衔接。',
     '再次强调：输出必须是合法 JSON，lyrics 内的换行写成 \\n。',
   ].join('\n');
 }
@@ -820,7 +821,7 @@ async function rewriteSection(tag, extra) {
   lastTps = null;
 
   const messages = [
-    { role: 'system', content: '你是顶级作词人。重写歌词中指定的段落，只输出该段落本身：第一行原样保留段落标签行，随后是该段的新内容，行数与原段相近。禁止输出其他段落，禁止 JSON，禁止解释，禁止 markdown 围栏。' },
+    { role: 'system', content: '你是顶级作词人。重写歌词中指定的段落，只输出该段落本身：第一行原样保留段落标签行，随后是该段的新内容，行数与原段相近。括号 ad-lib 行（单独成行的圆括号句）可保留或换成新的。重写后保持原段的隐喻脉络与行密度。禁止输出其他段落，禁止 JSON，禁止解释，禁止 markdown 围栏。' },
     { role: 'user', content: `歌词全文：\n${state.out.lyrics}\n\n只重写 [${tag}] 段落：${extra ? '该段内容全部重写，语言和人声标注保持一致。只输出这一段。\n附加要求：' + extra : '该段内容全部重写，语言、押韵风格、人声标注保持一致。只输出这一段。'}` },
   ];
 
@@ -931,16 +932,22 @@ function lineUnits(ln) {
   return cjk + words;
 }
 
+function isAdlib(ln) {
+  return /^\(\s*\S.*\)$/.test(ln.trim());
+}
+
 function scoreSection(s) {
+  const body = s.lines.filter((ln) => !isAdlib(ln));
+  if (body.length < 2) return { score: 100, rhyme: 1, syl: 1 };
   const groups = new Map();
-  for (const ln of s.lines) {
+  for (const ln of body) {
     const k = rhymeKey(ln);
     if (k) groups.set(k, (groups.get(k) || 0) + 1);
   }
   const dom = Math.max(0, ...groups.values());
-  const rhyme = s.lines.length ? dom / s.lines.length : 0;
-  const ok = s.lines.filter((ln) => lineUnits(ln) >= 6 && lineUnits(ln) <= 12).length;
-  const syl = s.lines.length ? ok / s.lines.length : 0;
+  const rhyme = dom / body.length;
+  const ok = body.filter((ln) => lineUnits(ln) >= 6 && lineUnits(ln) <= 12).length;
+  const syl = ok / body.length;
   return { score: Math.round(rhyme * 60 + syl * 40), rhyme, syl };
 }
 
@@ -1015,13 +1022,16 @@ function renderRhyme() {
   box.innerHTML = advice + scored.map(({ s, score }) => {
     const letters = new Map();
     const rows = s.lines.map((ln) => {
+      if (isAdlib(ln)) {
+        return `<div class="r-line"><span class="r-badge adlib">ADLIB</span><span class="r-units">ad-lib</span><span class="r-text">${esc(ln)}</span></div>`;
+      }
       const k = rhymeKey(ln);
       if (k && !letters.has(k)) letters.set(k, String.fromCharCode(65 + letters.size));
       return `<div class="r-line"><span class="r-badge">${letters.get(k) || ''}</span><span class="r-units">${lineUnits(ln)} 单位</span><span class="r-text">${esc(ln)}</span></div>`;
     }).join('');
-    const lens = s.lines.map(lineUnits);
+    const lens = s.lines.filter((ln) => !isAdlib(ln)).map(lineUnits);
     const cls = score >= 85 ? 'good' : score < 70 ? 'low' : '';
-    return `<div class="r-sec"><div class="r-tag">${esc(s.tag)} · ${s.lines.length} 行 · ${Math.min(...lens)}–${Math.max(...lens)} 单位/行 · <span class="r-score ${cls}">可唱 ${score}</span></div>${rows}</div>`;
+    return `<div class="r-sec"><div class="r-tag">${esc(s.tag)} · ${s.lines.length} 行${lens.length ? ` · ${Math.min(...lens)}–${Math.max(...lens)} 单位/行` : ''} · <span class="r-score ${cls}">可唱 ${score}</span></div>${rows}</div>`;
   }).join('');
   box.hidden = false;
 }
