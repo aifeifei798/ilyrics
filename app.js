@@ -213,14 +213,14 @@ function buildSystem() {
     'JSON 字段：',
     '- title：歌名，简短有画面感。',
     '- style_tags：全英文风格标签，逗号分隔，含流派、人声性别、乐器、氛围、BPM。可借用 Suno 音乐术语增强控制：速度（adagio/andante/allegro/presto/rubato）、力度（crescendo/pianissimo/fortissimo）、织体（sparse/dense/layering）、人声技巧（falsetto/belt/melisma/crooning）、制作效果（reverb-heavy/tape compression/distorted/filtered）、调性与拍子（minor key/major key/3/4 waltz）。绝对禁止出现任何真实艺人、乐队或品牌名称（平台会屏蔽），用描述性词汇代替。',
-    '- lyrics：带 Suno 段落标签的完整歌词，每个段落之间空一行，歌词内不得出现任何说明性文字。',
+    '- lyrics：带 Suno 段落标签的完整歌词，遵守格式铁律：标签行全大写且不含数字与标点（[VERSE] [PRE-CHORUS] [CHORUS] [POST-CHORUS] [BRIDGE] [OUTRO] [END]），标签行单独成行；每个段落之间空一行且只空一行；可在标签行内用竖线叠加指令，如 [CHORUS | anthemic | stacked harmonies]、[VERSE | whispered vocals | low energy]；最后一行输出 [END] 强制收尾。歌词内不得出现任何说明性文字。',
     `歌词语言规则：${langRule}`,
     `曲风写法：${guides.join('；') || '流行歌标准写法'}`,
     `情绪基调：${moodWords}`,
     `结构模板：${P.structs[state.structure ? state.structure.id : state.genres.length ? state.genres[0].struct : 'pop']}`,
     ...(state.glossary.length ? ['用户指定的音乐术语必须原样出现在 style_tags 中：' + state.glossary.map((g) => g.tag).join(', ')] : []),
     ...(remixRule ? [remixRule] : []),
-    '每段歌词 4-6 行（Rap/Trap 按写法指南调整），全曲控制在 45 行以内，押韵自然。',
+    '每行歌词控制在 6-12 个音节（中文约 6-12 字），人声对齐更自然；每段 4-6 行（Rap/Trap 按写法指南调整），全曲控制在 45 行以内，押韵自然。',
     '再次强调：输出必须是合法 JSON，lyrics 内的换行写成 \\n。',
   ].join('\n');
 }
@@ -305,10 +305,19 @@ function norm(v, sep) {
   return typeof v === 'string' ? v : '';
 }
 
+function canonTagLine(ln) {
+  const m = ln.match(/^\s*\[([^\]]+)\]\s*(.*)$/);
+  if (!m) return ln;
+  const parts = m[1].split('|').map((p) => p.trim()).filter(Boolean);
+  parts[0] = parts[0].replace(/\s*\d+$/, '').toUpperCase();
+  return '[' + parts.join(' | ') + (m[2] ? '] ' + m[2] : ']');
+}
+
 function normalizeLyrics(text) {
   const lines = text.split('\n');
   const out = [];
-  for (const ln of lines) {
+  for (const raw of lines) {
+    const ln = /^\s*\[[^\]]+\]/.test(raw) ? canonTagLine(raw) : raw;
     if (/^\s*\[[^\]]+\]/.test(ln) && out.length && out[out.length - 1].trim() !== '') {
       out.push('');
     }
@@ -798,7 +807,11 @@ function buildRewriteRow() {
     if (!seen.includes(m[1])) seen.push(m[1]);
   }
   for (const t of seen) {
-    row.appendChild(chipEl('重写 ' + t, false, () => rewriteSection(t)));
+    const first = t.split('|')[0].trim();
+    if (first === 'END') continue;
+    const chip = chipEl('重写 ' + first, false, () => rewriteSection(t));
+    if (t !== first) chip.title = '重写 ' + t;
+    row.appendChild(chip);
   }
 }
 

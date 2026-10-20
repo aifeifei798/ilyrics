@@ -8,13 +8,13 @@ window.PRESETS = {
   ],
 
   structs: {
-    pop: '[Intro] [Verse 1] [Pre-Chorus] [Chorus] [Verse 2] [Chorus] [Bridge] [Final Chorus] [Outro]',
-    rap: '[Intro] [Hook] [Verse 1] [Hook] [Verse 2] [Hook] [Outro]',
-    rock: '[Intro] [Verse 1] [Chorus] [Verse 2] [Chorus] [Bridge] [Final Chorus] [Outro]',
-    rnb: '[Intro] [Verse 1] [Pre-Chorus] [Chorus] [Verse 2] [Chorus] [Bridge] [Outro]',
-    edm: '[Intro] [Verse 1] [Pre-Chorus] [Chorus] [Verse 2] [Build] [Drop] [Bridge] [Outro]',
-    folk: '[Intro] [Verse 1] [Chorus] [Verse 2] [Chorus] [Bridge] [Outro]',
-    jazz: '[Intro] [Verse 1] [Chorus] [Verse 2] [Chorus] [Outro]',
+    pop: '[INTRO] [VERSE] [PRE-CHORUS] [CHORUS] [POST-CHORUS] [VERSE] [CHORUS] [BRIDGE] [CHORUS] [OUTRO] [END]',
+    rap: '[INTRO] [HOOK] [VERSE] [HOOK] [VERSE] [HOOK] [OUTRO] [END]',
+    rock: '[INTRO] [VERSE] [CHORUS] [VERSE] [CHORUS] [BRIDGE] [GUITAR SOLO] [CHORUS] [OUTRO] [END]',
+    rnb: '[INTRO] [VERSE] [PRE-CHORUS] [CHORUS] [VERSE] [CHORUS] [BRIDGE] [OUTRO] [END]',
+    edm: '[INTRO] [VERSE] [PRE-CHORUS] [CHORUS] [VERSE] [BUILD] [DROP] [BREAKDOWN] [OUTRO] [END]',
+    folk: '[INTRO] [VERSE] [CHORUS] [VERSE] [CHORUS] [BRIDGE] [OUTRO] [END]',
+    jazz: '[INTRO] [VERSE] [CHORUS] [VERSE] [CHORUS] [INSTRUMENTAL] [OUTRO] [END]',
   },
 
   structTpl: [
