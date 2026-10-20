@@ -327,6 +327,46 @@ function renderLyrics(text) {
   }).join('\n');
 }
 
+/* ---------- versions ---------- */
+
+let versions = [];
+let verIdx = 0;
+
+function resetVersions(lyrics) {
+  versions = lyrics ? [{ lyrics, note: '原版' }] : [];
+  verIdx = 0;
+  renderVerRow();
+}
+
+function pushVersion(lyrics, note) {
+  if (!versions.length) return;
+  versions.push({ lyrics, note });
+  verIdx = versions.length - 1;
+  renderVerRow();
+}
+
+function renderVerRow() {
+  const row = $('#verRow');
+  row.innerHTML = '';
+  if (versions.length < 2) {
+    row.hidden = true;
+    return;
+  }
+  row.hidden = false;
+  versions.forEach((v, i) => {
+    const b = chipEl(`V${i + 1} · ${v.note}`, i === verIdx, () => {
+      if (i === verIdx) return;
+      verIdx = i;
+      state.out = { ...state.out, lyrics: versions[i].lyrics };
+      renderFinal(state.out);
+      renderVerRow();
+      toast(`切到 V${i + 1}（${v.note}）`);
+    });
+    b.title = `切换到 V${i + 1}：${v.note}`;
+    row.appendChild(b);
+  });
+}
+
 function renderFinal(res) {
   state.out = res;
   $('#titleOut').innerHTML = res.title ? esc(res.title) : '<span class="placeholder">（无歌名）</span>';
@@ -345,6 +385,7 @@ function resetOut() {
   $('#reasonOut').textContent = '';
   $('#rewriteRow').innerHTML = '';
   $('#statsOut').textContent = '';
+  resetVersions('');
   sunoStep = 0;
   setSunoBtnLabel();
 }
@@ -457,6 +498,7 @@ async function generate() {
     );
     const parsed = parseFull(full);
     renderFinal(parsed);
+    resetVersions(parsed.lyrics);
     addHistory(parsed, theme);
     toast('生成完成 ✦');
   } catch (e) {
@@ -531,6 +573,7 @@ async function rewriteSection(tag) {
     }
     const updated = { title: state.out.title, style_tags: state.out.style_tags, lyrics: merged };
     renderFinal(updated);
+    pushVersion(merged, '重写 ' + tag);
     addHistory(updated, $('#theme').value.trim() || '局部重写 ' + tag);
     toast(`[${tag}] 已重写 ✦`);
   } catch (e) {
@@ -872,6 +915,7 @@ function restore(item) {
   renderChips();
   refreshDropdowns();
   renderFinal({ title: item.title, style_tags: item.style_tags, lyrics: item.lyrics });
+  resetVersions(item.lyrics);
   toast('已回填历史 ✦');
 }
 
