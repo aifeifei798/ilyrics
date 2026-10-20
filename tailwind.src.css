@@ -269,4 +269,12 @@
   .dd-grid::-webkit-scrollbar-thumb { @apply rounded-[3px] bg-neon-c/30; }
 
   .dd-item { @apply overflow-hidden text-ellipsis whitespace-nowrap px-[7px] py-[5px] text-[11px]; }
+
+  .pick-list { @apply flex max-h-[240px] flex-col gap-[6px] overflow-y-auto; }
+  .pick-list::-webkit-scrollbar { width: 6px; }
+  .pick-list::-webkit-scrollbar-thumb { @apply rounded-[3px] bg-neon-c/30; }
+  .pick-item {
+    @apply cursor-pointer rounded-[8px] border border-line bg-panel-2 px-[10px] py-[6px] text-[12px] text-dim;
+    @apply hover:border-neon-c/50 hover:text-text;
+  }
 }

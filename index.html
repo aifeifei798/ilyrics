@@ -45,11 +45,18 @@
     <div class="field">
       <div class="label">主题灵感</div>
       <textarea id="theme" rows="3" placeholder="写一句场景就行，比如：分手多年后在雨夜的便利店重遇前任"></textarea>
-      <div class="theme-actions">
-        <button class="ghost tip" id="diceBtn" data-tip="随机灵感：抽一个热门主题" aria-label="随机灵感">🎲</button>
-        <button class="ghost tip" id="blindBtn" data-tip="盲盒配方：随机整套组合" aria-label="盲盒配方">🎰</button>
-        <button class="ghost tip" id="remixBtn" data-tip="Remix：把一首歌扔进改编模式" aria-label="Remix">🔁</button>
-        <button class="ghost tip" id="clearBtn" data-tip="清空：主题和 Remix 一起清掉" aria-label="清空">🗑</button>
+      <div class="pick-area">
+        <div class="theme-actions">
+          <button class="ghost tip" id="themePickBtn" data-tip="选择灵感：打开灵感列表挑一条" aria-label="选择灵感">📋</button>
+          <button class="ghost tip" id="diceBtn" data-tip="随机灵感：抽一个热门主题" aria-label="随机灵感">🎲</button>
+          <button class="ghost tip" id="blindBtn" data-tip="盲盒配方：随机整套组合" aria-label="盲盒配方">🎰</button>
+          <button class="ghost tip" id="remixBtn" data-tip="Remix：把一首歌扔进改编模式" aria-label="Remix">🔁</button>
+          <button class="ghost tip" id="clearBtn" data-tip="清空：主题和 Remix 一起清掉" aria-label="清空">🗑</button>
+        </div>
+        <div class="dd-panel" id="pickPanel" hidden>
+          <input class="dd-search" id="pickSearch" placeholder="搜索灵感…" />
+          <div class="pick-list" id="pickList"></div>
+        </div>
       </div>
       <div class="field" id="remixField" hidden>
         <div class="label">Remix 原作 <span class="hint">扔一首歌的歌词进来，生成一首全新改编</span></div>

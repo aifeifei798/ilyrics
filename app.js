@@ -548,6 +548,45 @@ $('#diceBtn').addEventListener('click', () => {
   const list = P.inspirations;
   $('#theme').value = list[Math.floor(Math.random() * list.length)];
 });
+
+/* ---------- theme picker ---------- */
+
+function renderPickList() {
+  const q = $('#pickSearch').value.trim().toLowerCase();
+  const box = $('#pickList');
+  box.innerHTML = '';
+  const list = P.inspirations.filter((s) => !q || s.toLowerCase().includes(q));
+  if (!list.length) {
+    box.innerHTML = '<span class="placeholder">没有匹配的灵感</span>';
+    return;
+  }
+  for (const s of list) {
+    const el = document.createElement('div');
+    el.className = 'pick-item';
+    el.textContent = s;
+    el.addEventListener('click', () => {
+      $('#theme').value = s;
+      $('#pickPanel').hidden = true;
+      $('#theme').focus();
+    });
+    box.appendChild(el);
+  }
+}
+
+$('#themePickBtn').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  const p = $('#pickPanel');
+  p.hidden = !p.hidden;
+  if (!p.hidden) {
+    $('#pickSearch').value = '';
+    renderPickList();
+    $('#pickSearch').focus();
+  }
+});
+$('#pickSearch').addEventListener('input', renderPickList);
+document.addEventListener('click', (ev) => {
+  if (!$('#pickPanel').hidden && !ev.target.closest('.pick-area')) $('#pickPanel').hidden = true;
+});
 $('#clearBtn').addEventListener('click', () => { $('#theme').value = ''; });
 $('#remixBtn').addEventListener('click', () => {
   const on = $('#remixBtn').classList.toggle('active');

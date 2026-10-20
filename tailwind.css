@@ -1206,6 +1206,48 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .pick-list {
+    display: flex;
+    max-height: 240px;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+  }
+  .pick-list::-webkit-scrollbar {
+    width: 6px;
+  }
+  .pick-list::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background-color: color-mix(in srgb, #b47cff 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-neon-c) 30%, transparent);
+    }
+  }
+  .pick-item {
+    cursor: pointer;
+    border-radius: 8px;
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+    border-color: var(--color-line);
+    background-color: var(--color-panel-2);
+    padding-inline: 10px;
+    padding-block: 6px;
+    font-size: 12px;
+    color: var(--color-dim);
+    &:hover {
+      @media (hover: hover) {
+        border-color: color-mix(in srgb, #b47cff 50%, transparent);
+        @supports (color: color-mix(in lab, red, red)) {
+          border-color: color-mix(in oklab, var(--color-neon-c) 50%, transparent);
+        }
+      }
+    }
+    &:hover {
+      @media (hover: hover) {
+        color: var(--color-text);
+      }
+    }
+  }
 }
 @property --tw-border-style {
   syntax: "*";
