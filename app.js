@@ -813,7 +813,7 @@ function spliceRewritten(orig, tag, blockLines) {
   return [...lines.slice(0, start), ...repl, ...lines.slice(end)].join('\n');
 }
 
-async function rewriteSection(tag, extra) {
+async function rewriteSection(tag, extra, label) {
   if (state.busy) return 'fail';
   if (!state.out.lyrics) { toast('先生成一首歌'); return 'fail'; }
   state.busy = true;
@@ -847,7 +847,7 @@ async function rewriteSection(tag, extra) {
       lyrics: merged,
     };
     renderFinal(updated);
-    pushVersion(merged, (extra ? '押韵修复 ' : '重写 ') + tag);
+    pushVersion(merged, (label || (extra ? '押韵修复 ' : '重写 ')) + tag);
     syncHistory('局部重写 ' + tag);
     toast(`[${tag}] 已重写 ✦`);
     return 'ok';
@@ -878,6 +878,23 @@ async function fixRhymeSections() {
   buildRhymeRow();
   renderRhyme();
   toast(fixed ? `${fixed} 段押韵已修复 🔧` : '修复没成功，歌词未改动');
+}
+
+async function fixSingSections() {
+  if (state.busy) return;
+  if (!state.out.lyrics) { toast('先生成一首歌'); return; }
+  const low = analyzeLyrics(state.out.lyrics).filter((s) => scoreSection(s).syl < 0.75);
+  if (!low.length) { toast('没有音节偏低的段落 ✦'); return; }
+  let fixed = 0;
+  for (const s of low) {
+    toast(`可唱修复 [${s.tag}]… ${fixed + 1}/${low.length}`);
+    const st = await rewriteSection(s.tag, '可唱修复：必须把该段每一行内容都改写（禁止原样返回原行），让每个正文行都落在 6-12 音节（中文约 6-12 字）：超过 12 的行拆成两行或删掉冗词，短于 6 的行补足一个具体意象；保持段落语义、语言、隐喻脉络与括号 ad-lib 行，行尾尽量继续押同一韵辙', '可唱修复 ');
+    if (st !== 'ok') break;
+    fixed++;
+  }
+  buildRhymeRow();
+  renderRhyme();
+  toast(fixed ? `${fixed} 段可唱性已修复 🎤` : '修复没成功，歌词未改动');
 }
 
 function buildRewriteRow() {
@@ -1004,6 +1021,12 @@ function buildRhymeRow() {
     fix.title = '按押韵覆盖率，逐段重写押韵偏低的段落（语义与语言保持）';
     row.appendChild(fix);
   }
+  const sing = analyzeLyrics(state.out.lyrics).filter((s) => scoreSection(s).syl < 0.75);
+  if (sing.length) {
+    const fix = chipEl(`🎤 可唱修复 ×${sing.length}`, false, fixSingSections);
+    fix.title = '按音节达标率，逐段把超长/超短行拉回 6-12 单位（语义、ad-lib 与押韵尽量保持）';
+    row.appendChild(fix);
+  }
 }
 
 function renderRhyme() {
@@ -1017,7 +1040,7 @@ function renderRhyme() {
   const scored = secs.map((s) => ({ s, ...scoreSection(s) }));
   const low = scored.filter((x) => x.score < 70);
   const advice = low.length
-    ? `<div class="r-advice">可唱性偏低，建议重写：${low.map((x) => `${esc(x.s.tag)}（${x.score} 分，押韵 ${Math.round(x.rhyme * 100)}%）`).join('、')}</div>`
+    ? `<div class="r-advice">可唱性偏低，建议重写：${low.map((x) => `${esc(x.s.tag)}（${x.score} 分，押韵 ${Math.round(x.rhyme * 100)}%·音节 ${Math.round(x.syl * 100)}%）`).join('、')}</div>`
     : scored.length ? '<div class="r-advice ok">全段可唱性 ≥ 70，不用重写 ✦</div>' : '';
   box.innerHTML = advice + scored.map(({ s, score }) => {
     const letters = new Map();
