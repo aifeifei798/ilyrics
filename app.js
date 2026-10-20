@@ -8,6 +8,7 @@ const state = {
   styleCards: [],
   moods: new Set(),
   vocal: null,
+  params: { model: '', temp: 0.9, maxTok: 2400 },
   thinking: true,
   busy: false,
   abort: null,
@@ -331,6 +332,8 @@ function renderFinal(res) {
   $('#titleOut').innerHTML = res.title ? esc(res.title) : '<span class="placeholder">（无歌名）</span>';
   $('#tagsOut').innerHTML = res.style_tags ? esc(res.style_tags) : '<span class="placeholder">（无风格标签）</span>';
   $('#lyricsOut').innerHTML = res.lyrics ? renderLyrics(res.lyrics) : '<span class="placeholder">（无歌词）</span>';
+  buildRewriteRow();
+  updateStats();
 }
 
 function resetOut() {
@@ -338,6 +341,8 @@ function resetOut() {
   renderPartial({ title: '', style_tags: '', lyrics: '' }, false);
   $('#reasonBox').hidden = true;
   $('#reasonOut').textContent = '';
+  $('#rewriteRow').innerHTML = '';
+  $('#statsOut').textContent = '';
 }
 
 function setBusy(on) {
@@ -345,6 +350,78 @@ function setBusy(on) {
   $('#status').textContent = on ? 'generating…' : 'idle';
   $('#genBtn').hidden = on;
   $('#stopBtn').hidden = !on;
+}
+
+/* ---------- streaming client ---------- */
+
+let lastTps = null;
+
+async function streamChat(messages, params, onContent) {
+  const controller = new AbortController();
+  state.abort = controller;
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages,
+      reasoning_effort: params.reasoning,
+      temperature: params.temp,
+      max_tokens: params.maxTok,
+      model: params.model || undefined,
+    }),
+    signal: controller.signal,
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({ error: 'HTTP ' + res.status }));
+    throw new Error(j.error || 'HTTP ' + res.status);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let sseBuf = '';
+  let full = '';
+  let reason = '';
+  const t0 = performance.now();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    sseBuf += decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = sseBuf.indexOf('\n')) >= 0) {
+      const line = sseBuf.slice(0, nl).trim();
+      sseBuf = sseBuf.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') continue;
+      let evt;
+      try { evt = JSON.parse(data); } catch { continue; }
+      if (evt.timings && evt.timings.predicted_per_second) {
+        lastTps = evt.timings.predicted_per_second;
+        $('#status').textContent = 'generating… ' + Math.round(lastTps) + ' tok/s';
+      } else if (evt.usage && evt.usage.completion_tokens) {
+        lastTps = evt.usage.completion_tokens / ((performance.now() - t0) / 1000);
+      }
+      const delta = evt.choices && evt.choices[0] && evt.choices[0].delta;
+      if (!delta) continue;
+      if (delta.content) full += delta.content;
+      if (delta.reasoning_content) {
+        reason += delta.reasoning_content;
+        $('#reasonBox').hidden = false;
+        $('#reasonOut').textContent = reason;
+      }
+      if (full) {
+        const secs = (performance.now() - t0) / 1000;
+        if (secs > 0.5) {
+          lastTps = full.length / 3.5 / secs;
+          $('#status').textContent = 'generating… ~' + Math.round(lastTps) + ' tok/s';
+        }
+        onContent(full);
+      }
+    }
+  }
+  if (!full) throw new Error('模型没有返回内容');
+  return full;
 }
 
 /* ---------- generate ---------- */
@@ -359,9 +436,7 @@ async function generate() {
   state.busy = true;
   setBusy(true);
   resetOut();
-
-  const controller = new AbortController();
-  state.abort = controller;
+  lastTps = null;
 
   const messages = [
     { role: 'system', content: buildSystem() },
@@ -369,54 +444,11 @@ async function generate() {
   ];
 
   try {
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages,
-        reasoning_effort: state.thinking ? 'high' : 'none',
-        max_tokens: 2400,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({ error: 'HTTP ' + res.status }));
-      throw new Error(j.error || 'HTTP ' + res.status);
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let sseBuf = '';
-    let full = '';
-    let reason = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      sseBuf += decoder.decode(value, { stream: true });
-      let nl;
-      while ((nl = sseBuf.indexOf('\n')) >= 0) {
-        const line = sseBuf.slice(0, nl).trim();
-        sseBuf = sseBuf.slice(nl + 1);
-        if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim();
-        if (data === '[DONE]') continue;
-        let evt;
-        try { evt = JSON.parse(data); } catch { continue; }
-        const delta = evt.choices && evt.choices[0] && evt.choices[0].delta;
-        if (!delta) continue;
-        if (delta.content) full += delta.content;
-        if (delta.reasoning_content) {
-          reason += delta.reasoning_content;
-          $('#reasonBox').hidden = false;
-          $('#reasonOut').textContent = reason;
-        }
-        if (full) renderPartial(extractPartial(full), true);
-      }
-    }
-
-    if (!full) throw new Error('模型没有返回内容');
+    const full = await streamChat(
+      messages,
+      { reasoning: state.thinking ? 'high' : 'none', temp: state.params.temp, maxTok: state.params.maxTok, model: state.params.model },
+      (content) => renderPartial(extractPartial(content), true),
+    );
     const parsed = parseFull(full);
     renderFinal(parsed);
     addHistory(parsed, theme);
@@ -429,6 +461,77 @@ async function generate() {
     setBusy(false);
     state.abort = null;
   }
+}
+
+/* ---------- section rewrite ---------- */
+
+async function rewriteSection(tag) {
+  if (state.busy) return;
+  if (!state.out.lyrics) { toast('先生成一首歌'); return; }
+  state.busy = true;
+  setBusy(true);
+  lastTps = null;
+
+  const messages = [
+    { role: 'system', content: '你是顶级作词人。只重写歌词中指定的段落，其余段落一字不改。输出完整歌词全文（带段落标签，段落间用换行），禁止 JSON，禁止解释，禁止 markdown 围栏。' },
+    { role: 'user', content: `歌词全文：\n${state.out.lyrics}\n\n只重写 [${tag}] 段落：该段内容全部重写（保持该段标签行不变、行数相近），其余段落保持完全一致。语言、押韵风格、人声标注保持一致。` },
+  ];
+
+  try {
+    const full = await streamChat(
+      messages,
+      { reasoning: 'none', temp: state.params.temp, maxTok: state.params.maxTok, model: state.params.model },
+      (content) => { $('#lyricsOut').innerHTML = renderLyrics(content) + '<span class="caret">▍</span>'; },
+    );
+    const lyrics = full.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '');
+    const updated = { title: state.out.title, style_tags: state.out.style_tags, lyrics };
+    renderFinal(updated);
+    addHistory(updated, $('#theme').value.trim() || '局部重写 ' + tag);
+    toast(`[${tag}] 已重写 ✦`);
+  } catch (e) {
+    if (e.name === 'AbortError') toast('已停止重写');
+    else toast('重写失败：' + e.message);
+    renderFinal(state.out);
+  } finally {
+    state.busy = false;
+    setBusy(false);
+    state.abort = null;
+  }
+}
+
+function buildRewriteRow() {
+  const row = $('#rewriteRow');
+  row.innerHTML = '';
+  if (!state.out.lyrics) return;
+  const seen = [];
+  for (const m of state.out.lyrics.matchAll(/\[([^\]]+)\]/g)) {
+    if (!seen.includes(m[1])) seen.push(m[1]);
+  }
+  for (const t of seen) {
+    row.appendChild(chipEl('重写 ' + t, false, () => rewriteSection(t)));
+  }
+}
+
+/* ---------- stats ---------- */
+
+function fmtDur(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function updateStats() {
+  const o = state.out;
+  const parts = [];
+  if (o.lyrics) {
+    const lines = o.lyrics.split('\n').filter((l) => l.trim()).length;
+    parts.push(lines + ' 行');
+    parts.push(o.lyrics.replace(/\s/g, '').length + ' 字');
+    const bpm = (o.style_tags.match(/(\d{2,3})\s*bpm/i) || [])[1];
+    if (bpm) parts.push('≈' + fmtDur((lines * 4 * 60) / Number(bpm)));
+  }
+  if (lastTps) parts.push('~' + Math.round(lastTps) + ' tok/s');
+  $('#statsOut').textContent = parts.join(' · ');
 }
 
 $('#genBtn').addEventListener('click', generate);
@@ -444,6 +547,27 @@ $('#remixBtn').addEventListener('click', () => {
   const on = $('#remixBtn').classList.toggle('active');
   $('#remixField').hidden = !on;
   if (on) $('#remixInput').focus();
+});
+$('#blindBtn').addEventListener('click', () => {
+  const pick = (list, n) => [...list].sort(() => Math.random() - 0.5).slice(0, n);
+  $('#theme').value = pick(P.inspirations, 1)[0];
+  state.artists = pick(P.artists, 1 + Math.floor(Math.random() * 2));
+  state.styleCards = pick(P.styles, 1 + Math.floor(Math.random() * 2));
+  state.genres = pick(P.genres, 1 + Math.floor(Math.random() * 2));
+  state.moods = new Set(pick(P.moods, Math.floor(Math.random() * 3)));
+  state.vocal = pick(P.vocals, 1)[0];
+  renderChips();
+  refreshDropdowns();
+  toast('盲盒配方已装填 🎰');
+});
+$('#saveEditBtn').addEventListener('click', () => {
+  const title = $('#titleOut').textContent.replace('▍', '').trim();
+  const tags = $('#tagsOut').textContent.replace('▍', '').trim();
+  if (!state.out.lyrics && !title) { toast('还没有内容可保存'); return; }
+  state.out = { title, style_tags: tags, lyrics: state.out.lyrics };
+  renderFinal(state.out);
+  addHistory(state.out, $('#theme').value.trim() || title || '手动修改');
+  toast('修改已保存进历史 ✦');
 });
 
 /* ---------- copy ---------- */
@@ -478,9 +602,12 @@ function loadHistory() {
 }
 
 function saveHistory(list) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 20)));
-  $('#histCount').textContent = list.length;
-  renderHistory(list);
+  const fav = list.filter((x) => x.fav);
+  const rest = list.filter((x) => !x.fav).slice(0, Math.max(0, 20 - fav.length));
+  const kept = [...fav, ...rest];
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(kept));
+  $('#histCount').textContent = kept.length;
+  renderHistory(kept);
 }
 
 function addHistory(res, theme) {
@@ -501,6 +628,17 @@ function addHistory(res, theme) {
   saveHistory(list);
 }
 
+function downloadTxt(item) {
+  const text = `Title: ${item.title || ''}\n\nStyle: ${item.style_tags || ''}\n\nLyrics:\n${item.lyrics || ''}`;
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(item.title || 'lyrics').replace(/[\\/:*?"<>|]/g, '_')}.txt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
+  toast('已导出 txt ⬇');
+}
+
 function renderHistory(list) {
   const box = $('#histList');
   box.innerHTML = '';
@@ -513,7 +651,27 @@ function renderHistory(list) {
     el.className = 'hist-item';
     const t = new Date(item.ts);
     const hhmm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-    el.innerHTML = `<span class="t">${hhmm}</span><span class="name">${esc(item.title || item.theme)}</span><span class="del">✕</span>`;
+    el.innerHTML =
+      `<span class="t">${hhmm}</span><span class="name">${esc(item.title || item.theme)}</span>` +
+      `<span class="acts"><button class="hbtn fav${item.fav ? ' on' : ''}">${item.fav ? '★' : '☆'}</button>` +
+      `<button class="hbtn rn">✎</button><button class="hbtn ex">⬇</button><span class="del">✕</span></span>`;
+    el.querySelector('.fav').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      item.fav = !item.fav;
+      saveHistory(list);
+    });
+    el.querySelector('.rn').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const name = prompt('给这首歌起个名字', item.title || item.theme);
+      if (name && name.trim()) {
+        item.title = name.trim();
+        saveHistory(list);
+      }
+    });
+    el.querySelector('.ex').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      downloadTxt(item);
+    });
     el.querySelector('.del').addEventListener('click', (ev) => {
       ev.stopPropagation();
       saveHistory(list.filter((x) => x.ts !== item.ts));
@@ -555,3 +713,42 @@ $('#histCount').textContent = loadHistory().length;
 renderHistory(loadHistory());
 renderChips();
 refreshDropdowns();
+
+/* ---------- params ---------- */
+
+async function loadModels() {
+  const sel = $('#modelSelect');
+  try {
+    const r = await fetch('/api/models');
+    const j = r.ok ? await r.json() : { models: [] };
+    const ids = (j.models || j.data || []).map((m) => (typeof m === 'string' ? m : m.id)).filter(Boolean);
+    sel.innerHTML = '';
+    if (ids.length) {
+      for (const id of ids) sel.appendChild(new Option(id, id));
+      state.params.model = sel.value;
+    } else {
+      sel.appendChild(new Option('服务端默认模型', ''));
+    }
+  } catch {
+    sel.innerHTML = '';
+    sel.appendChild(new Option('服务端默认模型', ''));
+  }
+  sel.addEventListener('change', () => {
+    state.params.model = sel.value;
+    toast(sel.value ? '模型：' + sel.value : '用服务端默认模型');
+  });
+}
+loadModels();
+
+$('#tempRange').addEventListener('input', (e) => {
+  state.params.temp = Number(e.target.value);
+  $('#tempVal').textContent = e.target.value;
+});
+$('#maxTokRange').addEventListener('input', (e) => {
+  state.params.maxTok = Number(e.target.value);
+  $('#maxTokVal').textContent = e.target.value;
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}

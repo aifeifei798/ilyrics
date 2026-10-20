@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const PORT = 4100;
 const UPSTREAM = 'http://127.0.0.1:8080/v1/chat/completions';
+const UPSTREAM_MODELS = 'http://127.0.0.1:8080/v1/models';
 const MODEL = 'qwen3.8-flash-next-gyro-gyro-s';
 
 const MIME = {
@@ -60,7 +61,7 @@ async function handleGenerate(req, res) {
   }
 
   const payload = {
-    model: MODEL,
+    model: input.model || MODEL,
     messages: input.messages,
     stream: true,
     temperature: input.temperature ?? 0.9,
@@ -96,10 +97,27 @@ async function handleGenerate(req, res) {
   }
 }
 
+async function handleModels(req, res) {
+  try {
+    const upstream = await fetch(UPSTREAM_MODELS);
+    if (!upstream.ok) {
+      sendJSON(res, upstream.status, { error: (await upstream.text()).slice(0, 300) });
+      return;
+    }
+    sendJSON(res, 200, await upstream.json());
+  } catch (e) {
+    sendJSON(res, 502, { error: String(e) });
+  }
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (req.method === 'POST' && url.pathname === '/api/generate') {
     handleGenerate(req, res);
+    return;
+  }
+  if (req.method === 'GET' && url.pathname === '/api/models') {
+    handleModels(req, res);
     return;
   }
   if (req.method === 'GET') {

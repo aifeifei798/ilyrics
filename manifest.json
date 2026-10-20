@@ -1,0 +1,12 @@
+{
+  "name": "ilyrics ✦ AI 歌词工作室",
+  "short_name": "ilyrics",
+  "description": "本地 AI 歌词工作室，生成 Suno-ready 歌词三件套",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b0a12",
+  "theme_color": "#0b0a12",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
