@@ -180,11 +180,11 @@
 
 @layer components {
   .history {
-    @apply sticky top-[26px] flex max-h-[calc(100vh-90px)] flex-col rounded-[14px] border border-line bg-panel px-4 py-[14px];
-    @apply max-[900px]:static max-[900px]:max-h-none;
+    @apply sticky top-[26px] flex h-[calc(100vh-90px)] flex-col rounded-[14px] border border-line bg-panel px-4 py-[14px];
+    @apply max-[900px]:static max-[900px]:h-auto;
   }
   .history .label span { @apply text-neon-b; }
-  .hist-list { @apply flex flex-col gap-2 overflow-y-auto pt-1; }
+  .hist-list { @apply flex flex-1 flex-col gap-2 overflow-y-auto pt-1; }
   .hist-date { @apply mt-1 font-mono text-[10px] tracking-[1px] text-neon-c opacity-60; }
   .hist-pager { @apply mt-2 flex items-center justify-between gap-2; }
   .hist-pager .ghost { @apply px-[12px] py-[4px]; }

@@ -202,6 +202,9 @@
   .hidden {
     display: none;
   }
+  .resize {
+    resize: both;
+  }
   .blur {
     --tw-blur: blur(8px);
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
@@ -841,7 +844,7 @@
     position: sticky;
     top: 26px;
     display: flex;
-    max-height: calc(100vh - 90px);
+    height: calc(100vh - 90px);
     flex-direction: column;
     border-radius: 14px;
     border-style: var(--tw-border-style);
@@ -854,7 +857,7 @@
       position: static;
     }
     @media (width < 900px) {
-      max-height: none;
+      height: auto;
     }
   }
   .history .label span {
@@ -862,6 +865,7 @@
   }
   .hist-list {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: calc(var(--spacing) * 2);
     overflow-y: auto;

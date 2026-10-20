@@ -1229,8 +1229,14 @@ $('#copyAllBtn').addEventListener('click', async () => {
 /* ---------- history ---------- */
 
 let histAll = loadHistory();
-const HIST_PAGE = 10;
 const histState = { page: 0, q: '' };
+
+// 分页大小按历史列表实际可见高度动态计算（一行条目含间距约 44px）
+function histPageSize() {
+  const h = $('#histList').clientHeight;
+  if (!h) return 10;
+  return Math.max(6, Math.floor((h - 16) / 44));
+}
 
 function loadHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
@@ -1289,9 +1295,10 @@ function downloadTxt(item) {
 
 function renderHistory() {
   const list = histFiltered();
-  const pages = Math.max(1, Math.ceil(list.length / HIST_PAGE));
+  const size = histPageSize();
+  const pages = Math.max(1, Math.ceil(list.length / size));
   histState.page = Math.min(Math.max(histState.page, 0), pages - 1);
-  const slice = list.slice(histState.page * HIST_PAGE, (histState.page + 1) * HIST_PAGE);
+  const slice = list.slice(histState.page * size, (histState.page + 1) * size);
 
   const box = $('#histList');
   box.innerHTML = '';
@@ -1372,6 +1379,11 @@ $('#histPrev').addEventListener('click', () => {
 $('#histNext').addEventListener('click', () => {
   histState.page++;
   renderHistory();
+});
+let histResizeT = null;
+window.addEventListener('resize', () => {
+  clearTimeout(histResizeT);
+  histResizeT = setTimeout(() => renderHistory(), 250);
 });
 $('#histSearch').addEventListener('input', (e) => {
   histState.q = e.target.value;
