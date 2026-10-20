@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ilyrics ✦ AI 歌词工作室</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="mark">✦</span>
+    <span class="wordmark">ilyrics</span>
+    <span class="tagline">Suno-ready lyrics studio</span>
+  </div>
+  <div class="eq" id="eq" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <div class="status" id="status">idle</div>
+</header>
+
+<main class="layout">
+  <section class="console">
+    <div class="field">
+      <div class="label">主题灵感</div>
+      <textarea id="theme" rows="3" placeholder="写一句场景就行，比如：分手多年后在雨夜的便利店重遇前任"></textarea>
+      <div class="theme-actions">
+        <button class="ghost" id="diceBtn">🎲 随机灵感</button>
+        <button class="ghost" id="remixBtn">🔁 Remix</button>
+        <button class="ghost" id="clearBtn">清空</button>
+      </div>
+      <div class="field" id="remixField" hidden>
+        <div class="label">Remix 原作 <span class="hint">扔一首歌的歌词进来，生成一首全新改编</span></div>
+        <textarea id="remixInput" rows="4" placeholder="粘贴原歌歌词，或歌名 + 歌词…"></textarea>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="label">歌词语言 <span class="hint">可多选，多选即跨语言混写</span></div>
+      <div class="chips" id="langChips"></div>
+    </div>
+
+    <div class="field">
+      <div class="label">歌手 <span class="hint">可多选，再点一下取消</span></div>
+      <button class="dd-btn" id="artistBtn">选择歌手 ▾</button>
+      <div class="dd-panel" id="artistPanel" hidden>
+        <input class="dd-search" id="artistSearch" placeholder="搜索歌手…" />
+        <div class="dd-grid" id="artistGrid"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="label">风格 <span class="hint">可多选，再点一下取消</span></div>
+      <button class="dd-btn" id="styleBtn">选择风格 ▾</button>
+      <div class="dd-panel" id="stylePanel" hidden>
+        <input class="dd-search" id="styleSearch" placeholder="搜索风格…" />
+        <div class="dd-grid" id="styleGrid"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="label">曲风 <span class="hint">可多选，再点一下取消</span></div>
+      <button class="dd-btn" id="genreBtn">选择曲风 ▾</button>
+      <div class="dd-panel" id="genrePanel" hidden>
+        <input class="dd-search" id="genreSearch" placeholder="搜索曲风…" />
+        <div class="dd-grid" id="genreGrid"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="label">情绪 <span class="hint">可多选</span></div>
+      <div class="chips" id="moodChips"></div>
+    </div>
+
+    <div class="field">
+      <div class="label">人声 <span class="hint">单选，再点一下取消</span></div>
+      <div class="chips" id="vocalChips"></div>
+    </div>
+
+    <div class="field">
+      <div class="label">选项</div>
+      <div class="chips">
+        <button class="chip" id="thinkToggle">深度思考</button>
+      </div>
+    </div>
+
+    <button class="cta" id="genBtn">✦ 生成歌词</button>
+    <button class="cta stop" id="stopBtn" hidden>■ 停止生成</button>
+  </section>
+
+  <section class="output">
+    <article class="card" id="titleCard">
+      <div class="card-head">
+        <span class="card-label">Song Title</span>
+        <button class="copy" data-copy="title">复制</button>
+      </div>
+      <div class="card-body title-body" id="titleOut"><span class="placeholder">等待生成…</span></div>
+    </article>
+
+    <article class="card" id="styleCard">
+      <div class="card-head">
+        <span class="card-label">Style of Music</span>
+        <button class="copy" data-copy="tags">复制</button>
+      </div>
+      <div class="card-body tags-body" id="tagsOut"><span class="placeholder">粘贴进 Suno 的 Style 框</span></div>
+    </article>
+
+    <article class="card" id="lyricsCard">
+      <div class="card-head">
+        <span class="card-label">Lyrics</span>
+        <button class="copy" data-copy="lyrics">复制</button>
+      </div>
+      <pre class="card-body lyrics-body" id="lyricsOut"><span class="placeholder">带 [Verse] [Chorus] 标签的完整歌词</span></pre>
+    </article>
+
+    <details id="reasonBox" hidden>
+      <summary>创作思路</summary>
+      <div class="reason" id="reasonOut"></div>
+    </details>
+
+    <div class="output-actions">
+      <button class="ghost" id="regenBtn">↻ 重新生成</button>
+      <button class="ghost" id="copyAllBtn">⧉ 一键复制 Suno 全文</button>
+    </div>
+  </section>
+
+  <aside class="history">
+    <div class="label">历史记录 <span id="histCount">0</span></div>
+    <div class="hist-list" id="histList"></div>
+  </aside>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="presets.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
