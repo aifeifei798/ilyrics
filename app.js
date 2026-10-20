@@ -201,7 +201,7 @@ function buildSystem() {
     'JSON 字段：',
     '- title：歌名，简短有画面感。',
     '- style_tags：全英文风格标签，逗号分隔，含流派、人声性别、乐器、氛围、BPM。绝对禁止出现任何真实艺人、乐队或品牌名称（平台会屏蔽），用描述性词汇代替。',
-    '- lyrics：带 Suno 段落标签的完整歌词，段落间用 \\n 分隔，歌词内不得出现任何说明性文字。',
+    '- lyrics：带 Suno 段落标签的完整歌词，每个段落之间空一行，歌词内不得出现任何说明性文字。',
     `歌词语言规则：${langRule}`,
     `曲风写法：${guides.join('；') || '流行歌标准写法'}`,
     `情绪基调：${moodWords}`,
@@ -292,6 +292,21 @@ function norm(v, sep) {
   return typeof v === 'string' ? v : '';
 }
 
+function normalizeLyrics(text) {
+  const lines = text.split('\n');
+  const out = [];
+  for (const ln of lines) {
+    if (/^\s*\[[^\]]+\]/.test(ln) && out.length && out[out.length - 1].trim() !== '') {
+      out.push('');
+    }
+    if (ln.trim() === '' && out.length && out[out.length - 1].trim() === '') continue;
+    out.push(ln);
+  }
+  while (out.length && out[0].trim() === '') out.shift();
+  while (out.length && out[out.length - 1].trim() === '') out.pop();
+  return out.join('\n');
+}
+
 function parseFull(raw) {
   const t = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '');
   try {
@@ -300,15 +315,15 @@ function parseFull(raw) {
       return {
         title: norm(j.title, ''),
         style_tags: norm(j.style_tags || j.style, ', '),
-        lyrics: norm(j.lyrics || j.lyric_lines, '\n'),
+        lyrics: normalizeLyrics(norm(j.lyrics || j.lyric_lines, '\n')),
       };
     }
   } catch { /* fall through */ }
   const p = extractPartial(raw);
   if (p.lyrics) {
-    return { title: p.title, style_tags: p.style_tags, lyrics: p.lyrics };
+    return { title: p.title, style_tags: p.style_tags, lyrics: normalizeLyrics(p.lyrics) };
   }
-  return { title: '', style_tags: '', lyrics: raw.trim() };
+  return { title: '', style_tags: '', lyrics: normalizeLyrics(raw.trim()) };
 }
 
 /* ---------- render ---------- */
@@ -350,8 +365,8 @@ function syncHistory(note) {
 
 function restoreVersions(item) {
   const vs = item.versions && item.versions.length
-    ? item.versions.map((v) => ({ lyrics: v.lyrics, note: v.note }))
-    : [{ lyrics: item.lyrics, note: '原版' }];
+    ? item.versions.map((v) => ({ lyrics: normalizeLyrics(v.lyrics), note: v.note }))
+    : [{ lyrics: normalizeLyrics(item.lyrics), note: '原版' }];
   versions = vs;
   verIdx = item.verIdx != null ? Math.min(Math.max(item.verIdx, 0), vs.length - 1) : 0;
   state.out = { ...state.out, lyrics: versions[verIdx].lyrics };
@@ -596,7 +611,8 @@ async function rewriteSection(tag) {
       (content) => { $('#lyricsOut').innerHTML = renderLyrics(content) + '<span class="caret">▍</span>'; },
     );
     const block = normalizeBlock(out, tag);
-    const merged = block ? spliceRewritten(state.out.lyrics, tag, block) : null;
+    const spliced = block ? spliceRewritten(state.out.lyrics, tag, block) : null;
+    const merged = spliced ? normalizeLyrics(spliced) : null;
     if (!merged) {
       toast('没找到对应段落，歌词未改动');
       renderFinal(state.out);
@@ -942,7 +958,7 @@ function restore(item) {
   state.moods.clear();
   renderChips();
   refreshDropdowns();
-  renderFinal({ title: item.title, style_tags: item.style_tags, lyrics: item.lyrics });
+  renderFinal({ title: item.title, style_tags: item.style_tags, lyrics: normalizeLyrics(item.lyrics) });
   curHistTs = item.ts;
   restoreVersions(item);
   toast('已回填历史 ✦');
