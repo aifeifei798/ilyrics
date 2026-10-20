@@ -197,7 +197,7 @@ function composeTags() {
 function buildSystem() {
   const langRule = state.langs.length === 1
     ? P.langs.find((l) => l.id === state.langs[0]).rule
-    : `歌词正文以列表第一种语言（${state.langs.map((id) => P.langs.find((l) => l.id === id).label).join('、')}中的第一个）为主，其余语言做点睛词与副歌 hook：每段至少一行在同一行内跨语言切换（code-switch），外语词嵌在行首或行中、行尾落在主语言以保住押韵（如「Karma 循环往复无休」），禁止整行只用非主语言；副歌 signature hook 必须含非主语言的词但行尾落在主语言，歌名用其中任一语言。`;
+    : `歌词正文以列表第一种语言（${state.langs.map((id) => P.langs.find((l) => l.id === id).label).join('、')}中的第一个）为主，全曲绝大多数行只用主语言，只在所选的这几门语言之间混写，禁止引入任何未选语言。每段至多一行在同一行内跨语言切换（code-switch），外语词嵌在行首或行中、行尾落在主语言以保住押韵（如「Karma 循环往复无休」）；副歌 signature hook 可含一个非主语言的点睛词，歌名用其中任一语言。`;
   const guides = [];
   if (state.artists.length) guides.push('歌手参考：' + state.artists.map((a) => a.guide).join('；'));
   if (state.styleCards.length) guides.push('风格参考：' + state.styleCards.map((s) => s.guide).join('；'));
