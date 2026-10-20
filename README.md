@@ -16,6 +16,7 @@
 - **参数面板**：模型下拉（从上游 `/v1/models` 拉取）、temperature、max_tokens 滑杆
 - **历史侧栏**：收藏（★置顶）、重命名、导出 txt，点条目一键回填全部选项（含 remix 原作）
 - **PWA**：可安装，移动端自适应；style_tags 合并去重并自动规避真实艺人名
+- **Tailwind CSS**：样式为 Tailwind v4（`tailwind.src.css`：@theme 霓虹令牌 + @layer components），构建产物 `tailwind.css` 随仓库提交、离线可用；改样式后 `npm install && npm run build` 重新生成
 
 ## 使用
 

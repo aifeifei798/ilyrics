@@ -1,5 +1,5 @@
 const CACHE = 'ilyrics-v1';
-const STATIC = ['/', '/index.html', '/style.css', '/app.js', '/presets.js', '/manifest.json', '/icon.svg'];
+const STATIC = ['/', '/index.html', '/tailwind.css', '/app.js', '/presets.js', '/manifest.json', '/icon.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC)));
