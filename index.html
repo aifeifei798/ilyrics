@@ -106,11 +106,18 @@
       <div class="chips" id="vocalChips"></div>
     </div>
 
+    <div class="field">
+      <div class="label">结构模板 <span class="hint">点选段落骨架（默认跟随曲风），再点取消</span></div>
+      <div class="chips" id="structChips"></div>
+    </div>
+
     <button class="cta" id="genBtn">✦ 生成歌词</button>
     <button class="cta stop" id="stopBtn" hidden>■ 停止生成</button>
+    <button class="ghost" id="batchBtn">⫐ 批量 ×3 首备选</button>
   </section>
 
   <section class="output">
+    <div class="drafts" id="draftsBox" hidden></div>
     <article class="card" id="titleCard">
       <div class="card-head">
         <span class="card-label">Song Title</span>
@@ -134,8 +141,10 @@
       </div>
       <pre class="card-body lyrics-body" id="lyricsOut"><span class="placeholder">带 [Verse] [Chorus] 标签的完整歌词</span></pre>
       <div class="stats" id="statsOut"></div>
+      <div class="rhyme" id="rhymeBox" hidden></div>
       <div class="chips rewrite-row" id="rewriteRow"></div>
       <div class="chips rewrite-row" id="verRow" hidden></div>
+      <div class="chips rewrite-row" id="rhymeRow"></div>
     </article>
 
     <details id="reasonBox" hidden>
@@ -145,12 +154,14 @@
 
     <div class="output-actions">
       <button class="ghost" id="regenBtn">↻ 再来一版</button>
+      <button class="ghost" id="retitleBtn">🏷 重想歌名</button>
       <button class="ghost" id="copyAllBtn">⧉ Suno 第一步：复制 Style</button>
     </div>
   </section>
 
   <aside class="history">
-    <div class="label">历史记录 <span id="histCount">0</span></div>
+    <div class="label">历史记录 <span id="histCount">0</span><span class="hist-tools"><button class="hbtn" id="histExport" title="导出全部历史 JSON">⬇</button><button class="hbtn" id="histImportBtn" title="导入历史 JSON">⬆</button></span></div>
+    <input type="file" id="histImport" hidden accept=".json,application/json" />
     <input class="dd-search" id="histSearch" placeholder="搜索历史…" />
     <div class="hist-list" id="histList"></div>
     <div class="hist-pager">

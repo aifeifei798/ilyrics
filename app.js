@@ -8,6 +8,7 @@ const state = {
   styleCards: [],
   moods: new Set(),
   vocal: null,
+  structure: null,
   params: { model: '', temp: 0.9, maxTok: 2400 },
   thinking: true,
   busy: false,
@@ -70,6 +71,15 @@ function renderChips() {
   for (const v of P.vocals) {
     vocalBox.appendChild(chipEl(v.label, state.vocal && state.vocal.id === v.id, () => {
       state.vocal = state.vocal && state.vocal.id === v.id ? null : v;
+      renderChips();
+    }));
+  }
+
+  const structBox = $('#structChips');
+  structBox.innerHTML = '';
+  for (const t of P.structTpl) {
+    structBox.appendChild(chipEl(t.label, state.structure && state.structure.id === t.id, () => {
+      state.structure = state.structure && state.structure.id === t.id ? null : t;
       renderChips();
     }));
   }
@@ -205,7 +215,7 @@ function buildSystem() {
     `歌词语言规则：${langRule}`,
     `曲风写法：${guides.join('；') || '流行歌标准写法'}`,
     `情绪基调：${moodWords}`,
-    `结构模板：${P.structs[state.genres.length ? state.genres[0].struct : 'pop']}`,
+    `结构模板：${P.structs[state.structure ? state.structure.id : state.genres.length ? state.genres[0].struct : 'pop']}`,
     ...(remixRule ? [remixRule] : []),
     '每段歌词 4-6 行（Rap/Trap 按写法指南调整），全曲控制在 45 行以内，押韵自然。',
     '再次强调：输出必须是合法 JSON，lyrics 内的换行写成 \\n。',
@@ -347,6 +357,27 @@ function renderLyrics(text) {
 let versions = [];
 let verIdx = 0;
 let curHistTs = null;
+let diffOn = false;
+
+function diffLines(a, b) {
+  const n = a.length, m = b.length;
+  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { out.push(['ctx', a[i]]); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push(['del', a[i]]); i++; }
+    else { out.push(['add', b[j]]); j++; }
+  }
+  while (i < n) out.push(['del', a[i++]]);
+  while (j < m) out.push(['add', b[j++]]);
+  return out;
+}
 
 function syncHistory(note) {
   const h = histAll.find((x) => x.ts === curHistTs);
@@ -409,6 +440,21 @@ function renderVerRow() {
     b.title = `切换到 V${i + 1}：${v.note}`;
     row.appendChild(b);
   });
+  if (verIdx > 0) {
+    const d = chipEl('⇄ 看改动', diffOn, () => {
+      diffOn = !diffOn;
+      if (diffOn) {
+        const rows = diffLines(versions[verIdx - 1].lyrics.split('\n'), versions[verIdx].lyrics.split('\n'));
+        $('#lyricsOut').innerHTML = rows.map(([t, ln]) => `<span class="d-${t}">${t === 'del' ? '− ' : t === 'add' ? '+ ' : ''}${esc(ln)}</span>`).join('\n');
+        toast(`对比 V${verIdx} → V${verIdx + 1}`);
+      } else {
+        $('#lyricsOut').innerHTML = renderLyrics(state.out.lyrics);
+      }
+      renderVerRow();
+    });
+    d.title = '对比上一版，看这次重写改了哪些行';
+    row.appendChild(d);
+  }
 }
 
 function renderFinal(res) {
@@ -417,7 +463,11 @@ function renderFinal(res) {
   $('#tagsOut').innerHTML = res.style_tags ? esc(res.style_tags) : '<span class="placeholder">（无风格标签）</span>';
   $('#lyricsOut').innerHTML = res.lyrics ? renderLyrics(res.lyrics) : '<span class="placeholder">（无歌词）</span>';
   buildRewriteRow();
+  buildRhymeRow();
+  diffOn = false;
+  renderRhyme();
   updateStats();
+  renderVerRow();
   sunoStep = 0;
   setSunoBtnLabel();
 }
@@ -429,6 +479,13 @@ function resetOut() {
   $('#reasonOut').textContent = '';
   $('#rewriteRow').innerHTML = '';
   $('#statsOut').textContent = '';
+  $('#rhymeRow').innerHTML = '';
+  $('#rhymeBox').hidden = true;
+  $('#rhymeBox').innerHTML = '';
+  rhymeOn = false;
+  $('#draftsBox').hidden = true;
+  $('#draftsBox').innerHTML = '';
+  document.querySelector('.output').classList.remove('drafting');
   resetVersions('');
   curHistTs = null;
   sunoStep = 0;
@@ -442,15 +499,16 @@ function setBusy(on) {
   st.textContent = on ? 'generating…' : '';
   $('#genBtn').hidden = on;
   $('#stopBtn').hidden = !on;
+  $('#batchBtn').hidden = on;
 }
 
 /* ---------- streaming client ---------- */
 
 let lastTps = null;
 
-async function streamChat(messages, params, onContent) {
-  const controller = new AbortController();
-  state.abort = controller;
+async function streamChat(messages, params, onContent, signal) {
+  const controller = signal || new AbortController();
+  if (!signal) state.abort = controller;
   const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -508,7 +566,7 @@ async function streamChat(messages, params, onContent) {
           lastTps = full.length / 3.5 / secs;
           $('#status').textContent = 'generating… ~' + Math.round(lastTps) + ' tok/s';
         }
-        onContent(full);
+        if (onContent) onContent(full);
       }
     }
   }
@@ -555,6 +613,94 @@ async function generate() {
     setBusy(false);
     state.abort = null;
   }
+}
+
+/* ---------- batch ×3 ---------- */
+
+async function batchGenerate() {
+  if (state.busy) return;
+  let theme = $('#theme').value.trim();
+  const remix = $('#remixInput').value.trim();
+  if (!theme && !remix) { toast('先写个主题、点「随机灵感」，或扔一首歌进 Remix'); return; }
+  if (!theme) theme = '把下面这首原作 remix 成一首全新歌曲';
+
+  state.busy = true;
+  setBusy(true);
+  resetOut();
+  lastTps = null;
+  $('#status').textContent = '批量生成 ×3…';
+  document.querySelector('.output').classList.add('drafting');
+  $('#draftsBox').hidden = false;
+  $('#draftsBox').innerHTML = '<span class="placeholder">3 首备选并行生成中…</span>';
+
+  const controllers = [];
+  state.abort = { abort() { controllers.forEach((c) => c.abort()); } };
+
+  const results = await Promise.all([0, 1, 2].map(async (i) => {
+    const c = new AbortController();
+    controllers.push(c);
+    try {
+      const full = await streamChat(
+        [{ role: 'system', content: buildSystem() }, { role: 'user', content: buildUser(theme) }],
+        { reasoning: 'none', temp: Math.min(1.3, state.params.temp + i * 0.15), maxTok: state.params.maxTok, model: state.params.model },
+        null,
+        c.signal,
+      );
+      return parseFull(full);
+    } catch { return null; }
+  }));
+
+  state.busy = false;
+  setBusy(false);
+  state.abort = null;
+
+  const drafts = results.filter((d) => d && d.lyrics);
+  if (!drafts.length) {
+    $('#draftsBox').hidden = true;
+    $('#draftsBox').innerHTML = '';
+    document.querySelector('.output').classList.remove('drafting');
+    toast('批量生成没拿到内容');
+    return;
+  }
+  renderDrafts(drafts);
+  toast(`${drafts.length} 首备选就绪，挑一首 ✓`);
+}
+
+function renderDrafts(list) {
+  const box = $('#draftsBox');
+  box.innerHTML = '';
+  list.forEach((d) => {
+    const lines = d.lyrics.split('\n');
+    const preview = lines.slice(0, 10).join('\n') + (lines.length > 10 ? '\n…' : '');
+    const card = document.createElement('div');
+    card.className = 'draft-card';
+    card.innerHTML =
+      `<div class="draft-title">${esc(d.title || '（无歌名）')}</div>` +
+      `<div class="draft-tags">${esc(d.style_tags || '')}</div>` +
+      `<pre class="draft-lyrics">${renderLyrics(preview)}</pre>` +
+      `<div class="draft-acts"><button class="ghost pick">✓ 选这首</button><button class="ghost drop">✕ 丢弃</button></div>`;
+    card.querySelector('.pick').addEventListener('click', () => chooseDraft(d));
+    card.querySelector('.drop').addEventListener('click', () => {
+      card.remove();
+      if (!box.children.length) {
+        box.hidden = true;
+        document.querySelector('.output').classList.remove('drafting');
+        toast('全部丢弃，回到空状态');
+      }
+    });
+    box.appendChild(card);
+  });
+}
+
+function chooseDraft(d) {
+  $('#draftsBox').hidden = true;
+  $('#draftsBox').innerHTML = '';
+  document.querySelector('.output').classList.remove('drafting');
+  renderFinal(d);
+  resetVersions(d.lyrics);
+  addHistory(d, $('#theme').value.trim() || d.title || '批量选歌');
+  curHistTs = histAll[0].ts;
+  toast('已选这首进正式输出 ✦');
 }
 
 /* ---------- section rewrite ---------- */
@@ -661,6 +807,69 @@ function fmtDur(sec) {
   return m + ':' + String(s).padStart(2, '0');
 }
 
+/* ---------- rhyme / syllable ---------- */
+
+let rhymeOn = false;
+
+function analyzeLyrics(text) {
+  const sections = [];
+  let cur = null;
+  for (const ln of text.split('\n')) {
+    const m = ln.match(/^\s*\[([^\]]+)\]/);
+    if (m) { cur = { tag: m[1], lines: [] }; sections.push(cur); continue; }
+    if (ln.trim() && cur) cur.lines.push(ln.trim());
+  }
+  return sections.filter((s) => s.lines.length);
+}
+
+function lineUnits(ln) {
+  const cjk = (ln.match(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ucaf2]/g) || []).length;
+  const words = (ln.match(/[A-Za-z]+/g) || []).length;
+  return cjk + words;
+}
+
+function lastChar(ln) {
+  const chars = [...ln.replace(/[^\p{L}\p{N}]/gu, '')];
+  return chars.length ? chars[chars.length - 1] : '';
+}
+
+function buildRhymeRow() {
+  const row = $('#rhymeRow');
+  row.innerHTML = '';
+  if (!state.out.lyrics) {
+    rhymeOn = false;
+    $('#rhymeBox').hidden = true;
+    $('#rhymeBox').innerHTML = '';
+    return;
+  }
+  row.appendChild(chipEl('♫ 押韵 / 音节', rhymeOn, () => {
+    rhymeOn = !rhymeOn;
+    buildRhymeRow();
+    renderRhyme();
+  }));
+}
+
+function renderRhyme() {
+  const box = $('#rhymeBox');
+  if (!rhymeOn || !state.out.lyrics) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+  const secs = analyzeLyrics(state.out.lyrics);
+  box.innerHTML = secs.map((s) => {
+    const letters = new Map();
+    const rows = s.lines.map((ln) => {
+      const lc = lastChar(ln);
+      if (lc && !letters.has(lc)) letters.set(lc, String.fromCharCode(65 + letters.size));
+      return `<div class="r-line"><span class="r-badge">${letters.get(lc) || ''}</span><span class="r-units">${lineUnits(ln)} 单位</span><span class="r-text">${esc(ln)}</span></div>`;
+    }).join('');
+    const lens = s.lines.map(lineUnits);
+    return `<div class="r-sec"><div class="r-tag">${esc(s.tag)} · ${s.lines.length} 行 · ${Math.min(...lens)}–${Math.max(...lens)} 单位/行</div>${rows}</div>`;
+  }).join('');
+  box.hidden = false;
+}
+
 function updateStats() {
   const o = state.out;
   const parts = [];
@@ -677,7 +886,41 @@ function updateStats() {
 
 $('#genBtn').addEventListener('click', generate);
 $('#regenBtn').addEventListener('click', generate);
+$('#batchBtn').addEventListener('click', batchGenerate);
 $('#stopBtn').addEventListener('click', () => { if (state.abort) state.abort.abort(); });
+
+$('#retitleBtn').addEventListener('click', async () => {
+  if (state.busy) return;
+  if (!state.out.lyrics) { toast('先生成一首歌'); return; }
+  state.busy = true;
+  setBusy(true);
+  lastTps = null;
+  const messages = [
+    { role: 'system', content: '你是顶级作词人。根据歌词重想一个歌名：简短、有画面感、贴合歌词语言。只输出歌名本身一行，禁止解释、禁止引号。' },
+    { role: 'user', content: `当前歌名：${state.out.title}\n歌词：\n${state.out.lyrics}` },
+  ];
+  try {
+    const full = await streamChat(
+      messages,
+      { reasoning: 'none', temp: Math.min(state.params.temp, 0.9), maxTok: 80, model: state.params.model },
+      (content) => { $('#titleOut').innerHTML = esc(content.trim().split('\n')[0]) + '<span class="caret">▍</span>'; },
+    );
+    const title = full.trim().split('\n')[0].replace(/^["'「『]+|["'」』]+$/g, '').trim();
+    if (!title) { toast('没拿到新歌名'); renderFinal(state.out); return; }
+    state.out = { ...state.out, title };
+    renderFinal(state.out);
+    syncHistory();
+    toast('歌名已换新 🏷');
+  } catch (e) {
+    if (e.name === 'AbortError') toast('已停止');
+    else toast('歌名重写失败：' + e.message);
+    renderFinal(state.out);
+  } finally {
+    state.busy = false;
+    setBusy(false);
+    state.abort = null;
+  }
+});
 
 $('#diceBtn').addEventListener('click', () => {
   const list = P.inspirations;
@@ -744,6 +987,7 @@ $('#blindBtn').addEventListener('click', () => {
   state.genres = pick(P.genres, 1 + Math.floor(Math.random() * 2));
   state.moods = new Set(pick(P.moods, Math.floor(Math.random() * 3)));
   state.vocal = pick(P.vocals, 1)[0];
+  state.structure = pick(P.structTpl, 1)[0];
   renderChips();
   refreshDropdowns();
   toast('盲盒配方已装填 🎰');
@@ -846,6 +1090,7 @@ function addHistory(res, theme) {
     artists: state.artists.map((a) => a.id),
     styleCards: state.styleCards.map((s) => s.id),
     vocal: state.vocal ? state.vocal.id : null,
+    structure: state.structure ? state.structure.id : null,
     ts: Date.now(),
   });
   saveHistory();
@@ -955,6 +1200,7 @@ function restore(item) {
     .map((id) => P.styles.find((s) => s.id === id))
     .filter(Boolean);
   state.vocal = P.vocals.find((v) => v.id === item.vocal) || null;
+  state.structure = P.structTpl.find((t) => t.id === item.structure) || null;
   state.moods.clear();
   renderChips();
   refreshDropdowns();
@@ -963,6 +1209,42 @@ function restore(item) {
   restoreVersions(item);
   toast('已回填历史 ✦');
 }
+
+$('#histExport').addEventListener('click', () => {
+  if (!histAll.length) { toast('历史是空的'); return; }
+  const blob = new Blob([JSON.stringify(histAll, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ilyrics-history.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
+  toast('历史已导出 JSON ⬇');
+});
+
+$('#histImportBtn').addEventListener('click', () => $('#histImport').click());
+
+$('#histImport').addEventListener('change', async (ev) => {
+  const f = ev.target.files[0];
+  ev.target.value = '';
+  if (!f) return;
+  try {
+    const arr = JSON.parse(await f.text());
+    if (!Array.isArray(arr)) throw new Error('不是历史数组');
+    const known = new Set(histAll.map((x) => x.ts));
+    let added = 0;
+    for (const item of arr) {
+      if (!item || !item.lyrics || known.has(item.ts)) continue;
+      histAll.unshift({ ...item });
+      added++;
+    }
+    if (!added) { toast('没有新条目可导入'); return; }
+    histAll.sort((a, b) => b.ts - a.ts);
+    saveHistory();
+    toast(`导入 ${added} 条历史 ⬆`);
+  } catch (e) {
+    toast('导入失败：' + e.message);
+  }
+});
 
 makeDropdown('artist', '#artistBtn', '#artistPanel', '#artistSearch', '#artistGrid', null, { multi: true, arr: 'artists' });
 makeDropdown('style', '#styleBtn', '#stylePanel', '#styleSearch', '#styleGrid', null, { multi: true, arr: 'styleCards' });
@@ -1177,3 +1459,25 @@ $('#maxTokRange').addEventListener('input', (e) => {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
+
+/* ---------- keyboard shortcuts ---------- */
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') {
+    if (!$('#settingsPanel').hidden) $('#settingsPanel').hidden = true;
+    if (!$('#pickPanel').hidden) $('#pickPanel').hidden = true;
+    if (!$('#dataOverlay').hidden) $('#dataOverlay').hidden = true;
+    if (state.busy && state.abort) state.abort.abort();
+    return;
+  }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+    ev.preventDefault();
+    if (!state.busy) generate();
+    return;
+  }
+  if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'd' || ev.key === 'D')) {
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+    $('#diceBtn').click();
+  }
+});

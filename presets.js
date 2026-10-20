@@ -16,6 +16,16 @@ window.PRESETS = {
     folk: '[Intro] [Verse 1] [Chorus] [Verse 2] [Chorus] [Bridge] [Outro]',
     jazz: '[Intro] [Verse 1] [Chorus] [Verse 2] [Chorus] [Outro]',
   },
+
+  structTpl: [
+    { id: 'pop', label: '流行标准' },
+    { id: 'rap', label: 'Rap 流水' },
+    { id: 'rock', label: '摇滚' },
+    { id: 'rnb', label: 'R&B 慢板' },
+    { id: 'edm', label: 'EDM 舞曲' },
+    { id: 'folk', label: '民谣叙事' },
+    { id: 'jazz', label: '爵士' },
+  ],
   genres: [
     { id: '流行Ballad', label: '流行 Ballad', tags: 'pop ballad, piano driven, lush strings, warm vocals, 78 bpm', guide: '主歌叙事副歌长句，情感克制深情', struct: 'pop' },
     { id: 'DreamPop', label: '梦幻流行', tags: 'dream pop, shimmering reverb guitars, hazy airy vocals, 100 bpm', guide: '朦胧漂浮感，副歌如梦', struct: 'pop' },

@@ -277,4 +277,35 @@
     @apply cursor-pointer rounded-[8px] border border-line bg-panel-2 px-[10px] py-[6px] text-[12px] text-dim;
     @apply hover:border-neon-c/50 hover:text-text;
   }
+
+  .drafts { @apply mb-4 flex flex-col gap-3; }
+  .draft-card {
+    @apply rounded-[12px] border border-neon-b/35 bg-panel p-4;
+    @apply hover:border-neon-b/60;
+  }
+  .draft-title { @apply font-serif text-[20px] text-text; }
+  .draft-tags { @apply mt-1 font-mono text-[11px] tracking-[1px] text-neon-b; }
+  .draft-lyrics { @apply mt-2 max-h-[190px] overflow-y-auto whitespace-pre-wrap font-mono text-[12px] leading-[1.7] text-lyrics; }
+  .draft-lyrics .tag { @apply font-semibold text-neon-b; }
+  .draft-acts { @apply mt-3 flex gap-2; }
+  .output.drafting article.card,
+  .output.drafting #reasonBox,
+  .output.drafting .output-actions { @apply hidden; }
+
+  .d-del { @apply text-neon-a opacity-70 line-through; }
+  .d-add { @apply text-neon-b; }
+  .d-ctx { @apply text-dim-2; }
+
+  .rhyme { @apply mt-3 rounded-[10px] border border-neon-c/25 bg-panel-2 p-3 font-mono text-[12px]; }
+  .r-sec { @apply mb-2 last:mb-0; }
+  .r-tag { @apply mb-1 text-neon-c; }
+  .r-line { @apply flex items-center gap-2; }
+  .r-badge {
+    @apply inline-block min-w-[22px] rounded-[4px] border border-neon-a/40 px-[6px] text-center text-[10px] text-neon-a;
+  }
+  .r-units { @apply min-w-[60px] text-dim-2; }
+  .r-text { @apply truncate text-lyrics; }
+
+  .history .label { @apply flex items-center; }
+  .hist-tools { @apply ml-auto flex gap-[6px]; }
 }
