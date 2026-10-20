@@ -938,6 +938,63 @@ $('#retitleBtn').addEventListener('click', async () => {
   }
 });
 
+$('#restyleBtn').addEventListener('click', async () => {
+  if (state.busy) return;
+  if (!state.out.lyrics) { toast('先生成一首歌'); return; }
+  state.busy = true;
+  setBusy(true);
+  lastTps = null;
+  const hints = [];
+  if (state.genres.length) hints.push('曲风参考：' + state.genres.map((g) => g.guide).join('；'));
+  if (state.styleCards.length) hints.push('风格参考：' + state.styleCards.map((s) => s.guide).join('；'));
+  if (state.vocal) hints.push('人声类型：' + state.vocal.label);
+  const moodWords = P.moods.filter((m) => state.moods.has(m.id)).map((m) => m.tag).join(', ');
+  if (moodWords) hints.push('情绪：' + moodWords);
+  const sys = [
+    '你是 Suno 风格标签专家。根据歌词重想一组 style tags（填进 Suno 的 Style of Music 框）。',
+    '规则：全英文、逗号分隔，含流派、人声性别、乐器、氛围、BPM；可借用 Suno 音乐术语（adagio/crescendo/sparse/dense/falsetto/belt/reverb-heavy/minor key 等）增强控制。',
+    '绝对禁止出现任何真实艺人、乐队或品牌名称（平台会屏蔽），用描述性词汇代替。',
+    ...(state.glossary.length ? ['用户指定的音乐术语必须原样出现在标签中：' + state.glossary.map((g) => g.tag).join(', ')] : []),
+    '歌词语言参考：' + state.langs.map((id) => P.langs.find((l) => l.id === id).label).join('、'),
+    '只输出一行标签本身，禁止解释、禁止引号、禁止 markdown。',
+  ].join('\n');
+  const messages = [
+    { role: 'system', content: sys },
+    { role: 'user', content: `当前标签：${state.out.style_tags}\n${hints.join('\n')}\n歌词：\n${state.out.lyrics}` },
+  ];
+  try {
+    const full = await streamChat(
+      messages,
+      { reasoning: 'none', temp: Math.min(state.params.temp, 0.9), maxTok: 160, model: state.params.model },
+      (content) => { $('#tagsOut').innerHTML = esc(content.trim().split('\n')[0]) + '<span class="caret">▍</span>'; },
+    );
+    const line = full.trim().split('\n')[0]
+      .replace(/^```(?:\w*)?\s*/i, '').replace(/```$/, '')
+      .replace(/^["'「『]+|["'」』]+$/g, '').trim();
+    const seen = [];
+    for (const raw of line.split(',')) {
+      const t = raw.trim();
+      if (!t || seen.includes(t)) continue;
+      if (P.artists.some((a) => t.toLowerCase().includes(a.label.toLowerCase()))) continue;
+      seen.push(t);
+    }
+    const tags = seen.slice(0, 16).join(', ');
+    if (!tags) { toast('没拿到新风格'); renderFinal(state.out); return; }
+    state.out = { ...state.out, style_tags: tags };
+    renderFinal(state.out);
+    syncHistory();
+    toast('风格已换新 🎼');
+  } catch (e) {
+    if (e.name === 'AbortError') toast('已停止');
+    else toast('风格重写失败：' + e.message);
+    renderFinal(state.out);
+  } finally {
+    state.busy = false;
+    setBusy(false);
+    state.abort = null;
+  }
+});
+
 $('#diceBtn').addEventListener('click', () => {
   const list = P.inspirations;
   $('#theme').value = list[Math.floor(Math.random() * list.length)];
