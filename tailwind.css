@@ -6,10 +6,12 @@
     --font-sans: -apple-system, 'Segoe UI', 'Noto Sans SC', sans-serif;
     --font-serif: Georgia, 'Times New Roman', 'Noto Serif SC', serif;
     --font-mono: ui-monospace, 'SF Mono', 'Noto Sans Mono', Consolas, monospace;
+    --color-black: #000;
     --color-white: #fff;
     --spacing: 0.25rem;
     --font-weight-semibold: 600;
     --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --blur-sm: 8px;
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
@@ -957,7 +959,7 @@
     position: fixed;
     bottom: calc(var(--spacing) * 6);
     left: calc(1 / 2 * 100%);
-    z-index: 50;
+    z-index: 70;
     --tw-translate-x: calc(calc(1 / 2 * 100%) * -1);
     translate: var(--tw-translate-x) var(--tw-translate-y);
     border-radius: calc(infinity * 1px);
@@ -972,6 +974,129 @@
     padding-block: 9px;
     font-size: 13px;
     color: var(--color-text);
+  }
+  .overlay {
+    position: fixed;
+    inset: 0px;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: color-mix(in srgb, #000 60%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-black) 60%, transparent);
+    }
+    padding: calc(var(--spacing) * 4);
+    --tw-backdrop-blur: blur(var(--blur-sm));
+    -webkit-backdrop-filter: var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,);
+    backdrop-filter: var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,);
+  }
+  .modal {
+    display: flex;
+    max-height: 85vh;
+    width: 100%;
+    max-width: 760px;
+    flex-direction: column;
+    border-radius: 14px;
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+    border-color: color-mix(in srgb, #b47cff 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-neon-c) 30%, transparent);
+    }
+    background-color: rgba(16,13,24,0.98);
+    padding: calc(var(--spacing) * 5);
+    --tw-shadow: 0 20px 60px var(--tw-shadow-color, rgba(0,0,0,0.6));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .modal-head {
+    margin-bottom: calc(var(--spacing) * 3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .tab-row {
+    margin-bottom: calc(var(--spacing) * 3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--spacing) * 2);
+  }
+  .tab-row .chip {
+    padding-inline: 12px;
+    padding-block: 5px;
+    font-size: 12px;
+  }
+  .data-list {
+    display: flex;
+    min-height: 160px;
+    flex: 1;
+    flex-direction: column;
+    gap: calc(var(--spacing) * 2);
+    overflow-y: auto;
+  }
+  .data-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 10px;
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+    border-color: var(--color-line);
+    background-color: var(--color-panel-2);
+    padding-inline: calc(var(--spacing) * 3);
+    padding-block: calc(var(--spacing) * 2);
+    font-size: 13px;
+    color: var(--color-text);
+    &:hover {
+      @media (hover: hover) {
+        border-color: color-mix(in srgb, #b47cff 40%, transparent);
+        @supports (color: color-mix(in lab, red, red)) {
+          border-color: color-mix(in oklab, var(--color-neon-c) 40%, transparent);
+        }
+      }
+    }
+  }
+  .dl-name {
+    min-width: 0px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dl-guide {
+    max-width: 38%;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-dim-2);
+  }
+  .dl-acts {
+    display: flex;
+    flex-shrink: 0;
+    gap: 6px;
+  }
+  .dl-acts .del {
+    color: var(--color-dim-2);
+  }
+  .dl-acts .del:hover {
+    color: var(--color-neon-a);
+  }
+  .data-foot {
+    margin-top: calc(var(--spacing) * 3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--spacing) * 2);
+  }
+  .data-add {
+    display: flex;
+    flex: 1;
+    gap: calc(var(--spacing) * 2);
+  }
+  .data-add .dd-search {
+    margin-bottom: 0px;
   }
   .dd-btn {
     width: 100%;
@@ -1234,6 +1359,42 @@
   syntax: "*";
   inherits: false;
 }
+@property --tw-backdrop-blur {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-backdrop-brightness {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-backdrop-contrast {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-backdrop-grayscale {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-backdrop-hue-rotate {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-backdrop-invert {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-backdrop-opacity {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-backdrop-saturate {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-backdrop-sepia {
+  syntax: "*";
+  inherits: false;
+}
 @keyframes eqbounce {
   0%, 100% {
     height: 5px;
@@ -1283,6 +1444,15 @@
       --tw-font-weight: initial;
       --tw-content: "";
       --tw-leading: initial;
+      --tw-backdrop-blur: initial;
+      --tw-backdrop-brightness: initial;
+      --tw-backdrop-contrast: initial;
+      --tw-backdrop-grayscale: initial;
+      --tw-backdrop-hue-rotate: initial;
+      --tw-backdrop-invert: initial;
+      --tw-backdrop-opacity: initial;
+      --tw-backdrop-saturate: initial;
+      --tw-backdrop-sepia: initial;
     }
   }
 }

@@ -209,8 +209,35 @@
 
 @layer components {
   .toast {
-    @apply fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-neon-a/50 bg-[rgba(20,18,30,0.95)] px-5 py-[9px] text-[13px] text-text;
+    @apply fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-neon-a/50 bg-[rgba(20,18,30,0.95)] px-5 py-[9px] text-[13px] text-text;
   }
+}
+
+/* ---------- data maintenance ---------- */
+
+@layer components {
+  .overlay {
+    @apply fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm;
+  }
+  .modal {
+    @apply flex max-h-[85vh] w-full max-w-[760px] flex-col rounded-[14px] border border-neon-c/30 bg-[rgba(16,13,24,0.98)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.6)];
+  }
+  .modal-head { @apply mb-3 flex items-center justify-between; }
+  .tab-row { @apply mb-3 flex flex-wrap gap-2; }
+  .tab-row .chip { @apply px-[12px] py-[5px] text-[12px]; }
+  .data-list { @apply min-h-[160px] flex-1 flex flex-col gap-2 overflow-y-auto; }
+  .data-row {
+    @apply flex items-center gap-[8px] rounded-[10px] border border-line bg-panel-2 px-3 py-2 text-[13px] text-text;
+    @apply hover:border-neon-c/40;
+  }
+  .dl-name { @apply min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap; }
+  .dl-guide { @apply max-w-[38%] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-dim-2; }
+  .dl-acts { @apply flex shrink-0 gap-[6px]; }
+  .dl-acts .del { @apply text-dim-2; }
+  .dl-acts .del:hover { @apply text-neon-a; }
+  .data-foot { @apply mt-3 flex items-center justify-between gap-2; }
+  .data-add { @apply flex flex-1 gap-2; }
+  .data-add .dd-search { @apply mb-0; }
 }
 
 /* ---------- dropdowns ---------- */

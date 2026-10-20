@@ -801,6 +801,173 @@ makeDropdown('artist', '#artistBtn', '#artistPanel', '#artistSearch', '#artistGr
 makeDropdown('style', '#styleBtn', '#stylePanel', '#styleSearch', '#styleGrid', null, { multi: true, arr: 'styleCards' });
 makeDropdown('genre', '#genreBtn', '#genrePanel', '#genreSearch', '#genreGrid', null, { multi: true, arr: 'genres' });
 
+/* ---------- data maintenance ---------- */
+
+const PRESETS_KEY = 'ilyrics_presets';
+const DATA_TABS = [
+  { key: 'inspirations', label: '主题灵感', kind: 'text' },
+  { key: 'langs', label: '语言', kind: 'obj' },
+  { key: 'artists', label: '歌手', kind: 'obj', guide: true },
+  { key: 'styles', label: '风格', kind: 'obj', guide: true },
+  { key: 'genres', label: '曲风', kind: 'obj' },
+  { key: 'moods', label: '情绪', kind: 'obj', tag: true },
+  { key: 'vocals', label: '人声', kind: 'obj', tag: true },
+];
+
+let currentDataTab = 'inspirations';
+
+const DEFAULTS = {};
+for (const t of DATA_TABS) DEFAULTS[t.key] = structuredClone(P[t.key]);
+
+try {
+  const saved = JSON.parse(localStorage.getItem(PRESETS_KEY)) || {};
+  for (const t of DATA_TABS) if (Array.isArray(saved[t.key])) P[t.key] = saved[t.key];
+} catch {}
+
+function dataTab() {
+  return DATA_TABS.find((t) => t.key === currentDataTab);
+}
+
+function persistData(key) {
+  const o = JSON.parse(localStorage.getItem(PRESETS_KEY)) || {};
+  o[key] = P[key];
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(o));
+}
+
+function pruneTo(key) {
+  if (key === 'inspirations') return;
+  const ids = P[key].map((x) => x.id);
+  if (key === 'langs') state.langs = state.langs.filter((id) => ids.includes(id));
+  else if (key === 'artists') state.artists = state.artists.filter((a) => ids.includes(a.id));
+  else if (key === 'styles') state.styleCards = state.styleCards.filter((s) => ids.includes(s.id));
+  else if (key === 'genres') state.genres = state.genres.filter((g) => ids.includes(g.id));
+  else if (key === 'moods') state.moods = new Set([...state.moods].filter((id) => ids.includes(id)));
+  else if (key === 'vocals' && state.vocal && !ids.includes(state.vocal.id)) state.vocal = null;
+}
+
+function refreshAll() {
+  persistData(currentDataTab);
+  renderChips();
+  refreshDropdowns();
+  renderDataTabs();
+  renderDataList();
+}
+
+function renderDataTabs() {
+  const box = $('#dataTabs');
+  box.innerHTML = '';
+  for (const t of DATA_TABS) {
+    box.appendChild(chipEl(`${t.label} ${P[t.key].length}`, currentDataTab === t.key, () => {
+      currentDataTab = t.key;
+      renderDataTabs();
+      renderDataList();
+    }));
+  }
+}
+
+function renderDataList() {
+  const tab = dataTab();
+  const list = P[currentDataTab];
+  const box = $('#dataList');
+  box.innerHTML = '';
+  if (!list.length) {
+    box.innerHTML = '<span class="placeholder">暂无条目</span>';
+    return;
+  }
+  list.forEach((item, idx) => {
+    const label = tab.kind === 'text' ? item : item.label;
+    const extra = (tab.guide || tab.tag) ? (item.guide || item.tag || '') : '';
+    const row = document.createElement('div');
+    row.className = 'data-row';
+    row.innerHTML =
+      `<span class="dl-name">${esc(label)}</span>` +
+      (extra ? `<span class="dl-guide">${esc(extra)}</span>` : '') +
+      `<span class="dl-acts"><button class="hbtn rn">✎</button><button class="hbtn del">✕</button></span>`;
+    row.querySelector('.rn').addEventListener('click', () => {
+      const name = prompt('名称', label);
+      if (name === null) return;
+      if (!name.trim()) { toast('名称不能为空'); return; }
+      if (tab.kind === 'text') {
+        list[idx] = name.trim();
+      } else {
+        const next = { ...item, label: name.trim() };
+        if (tab.guide) {
+          const g = prompt('提示（留空则删除）', item.guide || '');
+          if (g === null) return;
+          if (g.trim()) next.guide = g.trim();
+          else delete next.guide;
+        }
+        if (tab.tag) {
+          const tg = prompt('英文 tag（留空则删除）', item.tag || '');
+          if (tg === null) return;
+          if (tg.trim()) next.tag = tg.trim();
+          else delete next.tag;
+        }
+        list[idx] = next;
+      }
+      refreshAll();
+      toast('已更新 ✎');
+    });
+    row.querySelector('.del').addEventListener('click', () => {
+      list.splice(idx, 1);
+      if (tab.kind === 'obj') pruneTo(currentDataTab);
+      refreshAll();
+      toast('已删除 ✕');
+    });
+    box.appendChild(row);
+  });
+}
+
+$('#dataAddBtn').addEventListener('click', () => {
+  const input = $('#dataAdd');
+  const label = input.value.trim();
+  if (!label) { toast('先写一条内容'); return; }
+  const tab = dataTab();
+  if (tab.kind === 'text') {
+    P[currentDataTab].push(label);
+  } else {
+    const item = { id: 'c' + Date.now().toString(36), label };
+    if (tab.guide) {
+      const g = prompt('提示（可留空）', '');
+      if (g === null) return;
+      if (g.trim()) item.guide = g.trim();
+    }
+    if (tab.tag) {
+      const tg = prompt('英文 tag（可留空）', '');
+      if (tg === null) return;
+      if (tg.trim()) item.tag = tg.trim();
+    }
+    P[currentDataTab].push(item);
+  }
+  input.value = '';
+  refreshAll();
+  toast('已添加 ＋');
+});
+$('#dataAdd').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('#dataAddBtn').click();
+});
+
+$('#dataRestore').addEventListener('click', () => {
+  const tab = dataTab();
+  if (!confirm(`把「${tab.label}」恢复为内置默认？自定义内容会清空`)) return;
+  P[currentDataTab] = structuredClone(DEFAULTS[currentDataTab]);
+  pruneTo(currentDataTab);
+  refreshAll();
+  toast('已恢复默认 ↺');
+});
+
+$('#dataBtn').addEventListener('click', () => {
+  $('#dataOverlay').hidden = false;
+  renderDataTabs();
+  renderDataList();
+});
+$('#dataClose').addEventListener('click', () => {
+  $('#dataOverlay').hidden = true;
+});
+$('#dataOverlay').addEventListener('click', (ev) => {
+  if (ev.target === $('#dataOverlay')) $('#dataOverlay').hidden = true;
+});
+
 renderHistory();
 renderChips();
 refreshDropdowns();

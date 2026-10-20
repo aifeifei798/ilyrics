@@ -21,6 +21,7 @@
   </div>
   <div class="top-right">
     <div class="status" id="status" hidden></div>
+    <button class="ghost tip" id="dataBtn" data-tip="数据维护：预设增删改查" aria-label="数据维护">🗄</button>
     <div class="settings-wrap">
       <button class="ghost tip" id="settingsBtn" data-tip="设置：模型 / 温度 / 思考">⚙ 设置</button>
       <div class="dd-panel settings-panel" id="settingsPanel" hidden>
@@ -152,6 +153,24 @@
     </div>
   </aside>
 </main>
+
+<div class="overlay" id="dataOverlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <span class="card-label">数据维护</span>
+      <button class="ghost" id="dataClose">✕ 关闭</button>
+    </div>
+    <div class="tab-row" id="dataTabs"></div>
+    <div class="data-list" id="dataList"></div>
+    <div class="data-foot">
+      <div class="data-add">
+        <input class="dd-search" id="dataAdd" placeholder="新增一条…" />
+        <button class="ghost" id="dataAddBtn">＋ 添加</button>
+      </div>
+      <button class="ghost" id="dataRestore">↺ 恢复本类默认</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast" hidden></div>
 
