@@ -42,7 +42,9 @@
 ./server.sh stop       # 停止
 ```
 
-打开 http://localhost:4100 即可。需要本机 llama.cpp 服务端在 `127.0.0.1:8080` 运行（server.js 内置 SSE 代理，绕过上游无 CORS 的限制）。
+打开 http://localhost:4100 即可。需要有一个 OpenAI 兼容接口：默认指向本机 llama.cpp `127.0.0.1:8080`（server.js 内置 SSE 代理，绕过上游无 CORS 的限制），接口地址 / API Key / 模型可在 ⚙ 设置里改。
+
+> ⚠ **安全说明**：设置里的 API Key 仅以明文保存在浏览器 localStorage，并经本机 4100 代理转发给上游接口，未做任何加密（不落盘、不写日志）。仅供本地测试使用，请勿填入生产环境的真实 key；共享机器上用完建议清空。
 
 ## 示例输出
 

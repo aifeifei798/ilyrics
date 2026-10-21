@@ -28,6 +28,7 @@
         <div class="label">接口 <span class="hint">OpenAI 兼容 base URL</span></div>
         <input class="dd-input" id="apiBaseInput" type="text" placeholder="http://127.0.0.1:8080" spellcheck="false" autocomplete="off">
         <input class="dd-input mt-[8px]" id="apiKeyInput" type="password" placeholder="sk-..." spellcheck="false" autocomplete="off">
+        <div class="mt-[6px] font-mono text-[10px] leading-relaxed text-dim">⚠ API Key 明文保存在本机 localStorage，未加密，仅供测试使用。</div>
         <div class="label mt-3 mb-[10px]">模型 <span class="hint">可手填，↻ 从接口拉取</span></div>
         <div class="flex items-center gap-[8px]">
           <input class="dd-input flex-1" id="modelInput" list="modelList" placeholder="模型 id" spellcheck="false" autocomplete="off">
