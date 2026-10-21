@@ -23,10 +23,18 @@
     <div class="status" id="status" hidden></div>
     <button class="ghost tip" id="dataBtn" data-tip="数据维护：预设增删改查" aria-label="数据维护">🗄</button>
     <div class="settings-wrap">
-      <button class="ghost tip" id="settingsBtn" data-tip="设置：模型 / 温度 / 思考">⚙ 设置</button>
+      <button class="ghost tip" id="settingsBtn" data-tip="设置：接口 / 模型 / 温度 / 思考">⚙ 设置</button>
       <div class="dd-panel settings-panel" id="settingsPanel" hidden>
-        <div class="label">参数 <span class="hint">模型 / 温度 / 最大 tokens</span></div>
-        <select class="dd-select" id="modelSelect"></select>
+        <div class="label">接口 <span class="hint">OpenAI 兼容 base URL</span></div>
+        <input class="dd-input" id="apiBaseInput" type="text" placeholder="http://127.0.0.1:8080" spellcheck="false" autocomplete="off">
+        <input class="dd-input mt-[8px]" id="apiKeyInput" type="password" placeholder="sk-..." spellcheck="false" autocomplete="off">
+        <div class="label mt-3 mb-[10px]">模型 <span class="hint">可手填，↻ 从接口拉取</span></div>
+        <div class="flex items-center gap-[8px]">
+          <input class="dd-input flex-1" id="modelInput" list="modelList" placeholder="模型 id" spellcheck="false" autocomplete="off">
+          <button class="chip shrink-0 tip" id="refreshModelsBtn" data-tip="从当前接口重新拉取模型列表">↻</button>
+        </div>
+        <datalist id="modelList"></datalist>
+        <div class="label mt-3 mb-[10px]">参数 <span class="hint">温度 / 最大 tokens</span></div>
         <div class="param-row">
           <label class="param">temperature <input type="range" id="tempRange" min="0.1" max="1.2" step="0.05" value="0.9"><span id="tempVal">0.9</span></label>
           <label class="param">max_tokens <input type="range" id="maxTokRange" min="800" max="4000" step="200" value="2400"><span id="maxTokVal">2400</span></label>

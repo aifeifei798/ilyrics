@@ -132,6 +132,11 @@
     @apply focus:border-neon-b/60;
   }
 
+  .dd-input {
+    @apply w-full rounded-[10px] border border-neon-b/30 bg-[rgba(24,20,34,0.9)] px-3 py-[9px] font-mono text-[12px] text-text outline-none;
+    @apply focus:border-neon-b/60;
+  }
+
   .param-row { @apply mt-3 flex gap-[14px]; }
   .param { @apply flex flex-1 flex-col gap-1 font-mono text-[10px] tracking-[1px] text-dim; }
   .param input[type='range'] { @apply w-full accent-neon-a; }

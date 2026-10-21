@@ -3,9 +3,23 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PORT = 4100;
-const UPSTREAM = 'http://127.0.0.1:8080/v1/chat/completions';
-const UPSTREAM_MODELS = 'http://127.0.0.1:8080/v1/models';
+const DEFAULT_BASE = 'http://127.0.0.1:8080';
 const MODEL = 'qwen3.8-flash-next-gyro-gyro-s';
+
+function endpoints(baseUrl) {
+  let base = String(baseUrl || DEFAULT_BASE).trim().replace(/\/+$/, '');
+  if (!/^https?:\/\//i.test(base)) base = 'http://' + base;
+  if (/\/chat\/completions$/i.test(base)) {
+    return { chat: base, models: base.replace(/\/chat\/completions$/i, '/models') };
+  }
+  if (/\/v1$/i.test(base)) return { chat: base + '/chat/completions', models: base + '/models' };
+  return { chat: base + '/v1/chat/completions', models: base + '/v1/models' };
+}
+
+function authHeaders(apiKey) {
+  const key = String(apiKey || '').trim();
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -70,10 +84,12 @@ async function handleGenerate(req, res) {
     reasoning_effort: input.reasoning_effort ?? 'none',
   };
 
+  const ep = endpoints(input.baseUrl);
+
   try {
-    const upstream = await fetch(UPSTREAM, {
+    const upstream = await fetch(ep.chat, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders(input.apiKey) },
       body: JSON.stringify(payload),
     });
 
@@ -98,8 +114,20 @@ async function handleGenerate(req, res) {
 }
 
 async function handleModels(req, res) {
+  let input = {};
+  if (req.method === 'POST') {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    try {
+      input = JSON.parse(body || '{}');
+    } catch {
+      sendJSON(res, 400, { error: 'invalid json body' });
+      return;
+    }
+  }
+  const ep = endpoints(input.baseUrl);
   try {
-    const upstream = await fetch(UPSTREAM_MODELS);
+    const upstream = await fetch(ep.models, { headers: authHeaders(input.apiKey) });
     if (!upstream.ok) {
       sendJSON(res, upstream.status, { error: (await upstream.text()).slice(0, 300) });
       return;
@@ -116,7 +144,7 @@ const server = http.createServer((req, res) => {
     handleGenerate(req, res);
     return;
   }
-  if (req.method === 'GET' && url.pathname === '/api/models') {
+  if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/models') {
     handleModels(req, res);
     return;
   }
@@ -128,6 +156,10 @@ const server = http.createServer((req, res) => {
   res.end();
 });
 
-server.listen(PORT, () => {
-  console.log(`ilyrics running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`ilyrics running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { endpoints, authHeaders };

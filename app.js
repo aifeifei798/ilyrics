@@ -1,6 +1,35 @@
 const P = window.PRESETS;
 const $ = (s) => document.querySelector(s);
 
+const API_DEFAULT = {
+  base: 'http://127.0.0.1:8080',
+  key: 'sk-local',
+  model: 'qwen3.8-flash-next-gyro-gyro-s',
+};
+const PARAMS_KEY = 'ilyrics_params';
+
+function loadParams() {
+  const d = { apiBase: API_DEFAULT.base, apiKey: API_DEFAULT.key, model: API_DEFAULT.model, temp: 0.9, maxTok: 2400 };
+  try {
+    const p = JSON.parse(localStorage.getItem(PARAMS_KEY)) || {};
+    return {
+      apiBase: typeof p.apiBase === 'string' && p.apiBase ? p.apiBase : d.apiBase,
+      apiKey: typeof p.apiKey === 'string' ? p.apiKey : d.apiKey,
+      model: typeof p.model === 'string' && p.model ? p.model : d.model,
+      temp: Number(p.temp) > 0 ? Number(p.temp) : d.temp,
+      maxTok: Number(p.maxTok) > 0 ? Number(p.maxTok) : d.maxTok,
+    };
+  } catch {
+    return d;
+  }
+}
+
+function saveParams() {
+  try {
+    localStorage.setItem(PARAMS_KEY, JSON.stringify(state.params));
+  } catch {}
+}
+
 const state = {
   langs: ['zh'],
   genres: [],
@@ -10,7 +39,7 @@ const state = {
   vocal: null,
   structure: null,
   glossary: [],
-  params: { model: '', temp: 0.9, maxTok: 2400 },
+  params: loadParams(),
   thinking: true,
   busy: false,
   abort: null,
@@ -593,6 +622,8 @@ async function streamChat(messages, params, onContent, signal) {
       temperature: params.temp,
       max_tokens: params.maxTok,
       model: params.model || undefined,
+      baseUrl: state.params.apiBase,
+      apiKey: state.params.apiKey,
     }),
     signal: controller.signal,
   });
@@ -1865,37 +1896,62 @@ refreshDropdowns();
 
 /* ---------- params ---------- */
 
-async function loadModels() {
-  const sel = $('#modelSelect');
+async function loadModels(announce = false) {
+  const list = $('#modelList');
   try {
-    const r = await fetch('/api/models');
+    const r = await fetch('/api/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseUrl: state.params.apiBase, apiKey: state.params.apiKey }),
+    });
     const j = r.ok ? await r.json() : { models: [] };
-    const ids = (j.models || j.data || []).map((m) => (typeof m === 'string' ? m : m.id)).filter(Boolean);
-    sel.innerHTML = '';
-    if (ids.length) {
-      for (const id of ids) sel.appendChild(new Option(id, id));
-      state.params.model = sel.value;
-    } else {
-      sel.appendChild(new Option('服务端默认模型', ''));
-    }
-  } catch {
-    sel.innerHTML = '';
-    sel.appendChild(new Option('服务端默认模型', ''));
+    const ids = (j.models || j.data || [])
+      .map((m) => (typeof m === 'string' ? m : m.id || m.model || m.name))
+      .filter(Boolean);
+    list.innerHTML = '';
+    for (const id of ids) list.appendChild(new Option(id, id));
+    if (announce) toast(ids.length ? `已拉取 ${ids.length} 个模型` : '接口没返回模型列表');
+  } catch (e) {
+    if (announce) toast('模型列表拉取失败：' + e.message);
   }
-  sel.addEventListener('change', () => {
-    state.params.model = sel.value;
-    toast(sel.value ? '模型：' + sel.value : '用服务端默认模型');
-  });
 }
+
+$('#apiBaseInput').value = state.params.apiBase;
+$('#apiKeyInput').value = state.params.apiKey;
+$('#modelInput').value = state.params.model;
+$('#tempRange').value = state.params.temp;
+$('#tempVal').textContent = state.params.temp;
+$('#maxTokRange').value = state.params.maxTok;
+$('#maxTokVal').textContent = state.params.maxTok;
+
+$('#apiBaseInput').addEventListener('change', (e) => {
+  state.params.apiBase = e.target.value.trim() || API_DEFAULT.base;
+  e.target.value = state.params.apiBase;
+  saveParams();
+  toast('接口：' + state.params.apiBase);
+});
+$('#apiKeyInput').addEventListener('change', (e) => {
+  state.params.apiKey = e.target.value.trim();
+  saveParams();
+  toast('API Key 已保存');
+});
+$('#modelInput').addEventListener('change', (e) => {
+  state.params.model = e.target.value.trim();
+  saveParams();
+  toast(state.params.model ? '模型：' + state.params.model : '模型：服务端默认');
+});
+$('#refreshModelsBtn').addEventListener('click', () => loadModels(true));
 loadModels();
 
 $('#tempRange').addEventListener('input', (e) => {
   state.params.temp = Number(e.target.value);
   $('#tempVal').textContent = e.target.value;
+  saveParams();
 });
 $('#maxTokRange').addEventListener('input', (e) => {
   state.params.maxTok = Number(e.target.value);
   $('#maxTokVal').textContent = e.target.value;
+  saveParams();
 });
 
 if ('serviceWorker' in navigator) {

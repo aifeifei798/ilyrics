@@ -1,6 +1,6 @@
 # ilyrics
 
-零依赖 AI 歌词工作室：`server.js`（只用 Node 标准库）在 4100 端口提供静态文件 + SSE 代理（`/api/generate`、`/api/models`），转发到本机 llama.cpp `127.0.0.1:8080`（上游无 CORS，必须走代理）。前端无构建、无模块：`index.html` 依次加载 `presets.js`（`window.PRESETS` 数据：歌手/风格/曲风/术语表/结构模板）和 `app.js`（全部逻辑，单文件浏览器脚本）。运行时零依赖，devDeps 只有 Tailwind。
+零依赖 AI 歌词工作室：`server.js`（只用 Node 标准库）在 4100 端口提供静态文件 + SSE 代理（`/api/generate`、`/api/models`），转发到 OpenAI 兼容接口，默认本机 llama.cpp `127.0.0.1:8080`（上游无 CORS，必须走代理）。接口 base URL / API Key / model 在设置面板可改，存 localStorage（`ilyrics_params`），随请求体 `baseUrl`/`apiKey` 传给代理；`server.js` 的 `endpoints()` 负责补协议与 `/v1` 前缀（有独立单测）。前端无构建、无模块：`index.html` 依次加载 `presets.js`（`window.PRESETS` 数据：歌手/风格/曲风/术语表/结构模板）和 `app.js`（全部逻辑，单文件浏览器脚本）。运行时零依赖，devDeps 只有 Tailwind。
 
 ## 命令
 
@@ -11,7 +11,7 @@
 
 ## 测试约定
 
-`test/format.test.js` 用正则 `^function name\b[\s\S]*?^}` 从 `app.js` 源码里抠出顶层纯函数再 eval。要进单测的新函数必须：顶层 `function` 声明、闭合的 `}` 在行首、不依赖 `state`/DOM。`eval` 名单在测试第 8 行，加函数时同步更新。
+`test/format.test.js` 用正则 `^function name\b[\s\S]*?^}` 从 `app.js` 源码里抠出顶层纯函数再 eval。要进单测的新函数必须：顶层 `function` 声明、闭合的 `}` 在行首、不依赖 `state`/DOM。`eval` 名单在测试第 8 行，加函数时同步更新。`test/server.test.js` 直接 `require('../server.js')` 测 `endpoints()`/`authHeaders()`——server.js 有 `require.main` 守卫，require 时不会监听端口。
 
 ## Suno v6 格式铁律（不可破坏）
 

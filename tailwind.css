@@ -187,11 +187,11 @@
   }
 }
 @layer utilities {
-  .fixed {
-    position: fixed;
-  }
   .mt-3 {
     margin-top: calc(var(--spacing) * 3);
+  }
+  .mt-\[8px\] {
+    margin-top: 8px;
   }
   .mb-\[10px\] {
     margin-bottom: 10px;
@@ -199,14 +199,29 @@
   .block {
     display: block;
   }
+  .flex {
+    display: flex;
+  }
   .grid {
     display: grid;
   }
   .hidden {
     display: none;
   }
+  .flex-1 {
+    flex: 1;
+  }
+  .shrink-0 {
+    flex-shrink: 0;
+  }
   .resize {
     resize: both;
+  }
+  .items-center {
+    align-items: center;
+  }
+  .gap-\[8px\] {
+    gap: 8px;
   }
   .blur {
     --tw-blur: blur(8px);
@@ -623,6 +638,30 @@
   .dd-select {
     width: 100%;
     cursor: pointer;
+    border-radius: 10px;
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+    border-color: color-mix(in srgb, #2fd8ff 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-neon-b) 30%, transparent);
+    }
+    background-color: rgba(24,20,34,0.9);
+    padding-inline: calc(var(--spacing) * 3);
+    padding-block: 9px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-text);
+    --tw-outline-style: none;
+    outline-style: none;
+    &:focus {
+      border-color: color-mix(in srgb, #2fd8ff 60%, transparent);
+      @supports (color: color-mix(in lab, red, red)) {
+        border-color: color-mix(in oklab, var(--color-neon-b) 60%, transparent);
+      }
+    }
+  }
+  .dd-input {
+    width: 100%;
     border-radius: 10px;
     border-style: var(--tw-border-style);
     border-width: 1px;
